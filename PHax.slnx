@@ -1,0 +1,21 @@
+<Solution>
+  <Configurations>
+    <Platform Name="x64" />
+    <Platform Name="ARM64" />
+  </Configurations>
+  <Folder Name="/Solution Items/">
+    <File Path="Directory.Build.props" />
+    <File Path="Directory.Packages.props" />
+    <File Path="README.md" />
+  </Folder>
+  <Project Path="PHax.App/PHax.App.csproj">
+    <Platform Solution="*|x64" Project="x64" />
+    <Platform Solution="*|ARM64" Project="ARM64" />
+  </Project>
+  <Project Path="PHax.Core/PHax.Core.csproj" />
+  <Project Path="PHax.Data/PHax.Data.csproj" />
+  <Project Path="PHax.Imaging/PHax.Imaging.csproj" />
+  <Project Path="PHax.Modem/PHax.Modem.csproj" />
+  <Project Path="PHax.Service/PHax.Service.csproj" />
+  <Project Path="PHax.Tests/PHax.Tests.csproj" />
+</Solution>

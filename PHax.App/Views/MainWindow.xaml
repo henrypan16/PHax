@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window
+    x:Class="PHax.App.Views.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:PHax.App.Views"
+    Title="PHax">
+
+    <Window.SystemBackdrop>
+        <MicaBackdrop />
+    </Window.SystemBackdrop>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0">
+            <InfoBar IsOpen="{x:Bind Shell.IsSimulated, Mode=OneWay}" Severity="Error" IsClosable="False"
+                     Title="SIMULATION MODE"
+                     Message="The built-in simulator is active. No fax is sent to or received from a telephone line. Turn it off in Settings &gt; Modem." />
+            <InfoBar IsOpen="{x:Bind Shell.ServiceMissing, Mode=OneWay}" Severity="Warning" IsClosable="False"
+                     Title="PHax service not running"
+                     Message="Faxes cannot be sent or received until the PHax Windows Service is running. Drafts can still be edited." />
+            <InfoBar IsOpen="{x:Bind Shell.ModemProblem, Mode=OneWay}" Severity="Warning" IsClosable="False"
+                     Title="Modem" Message="{x:Bind Shell.ModemProblemText, Mode=OneWay}" />
+            <InfoBar x:Name="StartupError" Severity="Error" IsOpen="False" Title="Startup error" />
+        </StackPanel>
+
+        <NavigationView x:Name="Nav" Grid.Row="1" PaneDisplayMode="Left" IsBackButtonVisible="Collapsed"
+                        OpenPaneLength="230" SelectionChanged="Nav_SelectionChanged">
+            <NavigationView.PaneHeader>
+                <Button Margin="8,0,8,0" Style="{StaticResource AccentButtonStyle}" Click="NewFax_Click" HorizontalAlignment="Stretch">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <SymbolIcon Symbol="Add" />
+                        <TextBlock Text="New Fax" />
+                    </StackPanel>
+                </Button>
+            </NavigationView.PaneHeader>
+            <NavigationView.MenuItems>
+                <NavigationViewItem Content="Incoming" Tag="incoming" Icon="Phone" />
+                <NavigationViewItem Content="Inbox" Tag="inbox" Icon="Mail">
+                    <NavigationViewItem.InfoBadge>
+                        <InfoBadge Value="{x:Bind Shell.UnreadCount, Mode=OneWay}"
+                                   Visibility="{x:Bind local:Bind.VisibleIfPositive(Shell.UnreadCount), Mode=OneWay}" />
+                    </NavigationViewItem.InfoBadge>
+                </NavigationViewItem>
+                <NavigationViewItem Content="Drafts" Tag="drafts" Icon="Edit" />
+                <NavigationViewItem Content="Outbox" Tag="outbox" Icon="Send" />
+                <NavigationViewItem Content="Sent" Tag="sent" Icon="Accept" />
+            </NavigationView.MenuItems>
+            <Frame x:Name="ContentFrame" Padding="24,16,24,16" />
+        </NavigationView>
+
+        <Border Grid.Row="2" Padding="16,6" BorderThickness="0,1,0,0" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <Ellipse Width="8" Height="8" VerticalAlignment="Center"
+                         Fill="{x:Bind local:Bind.StatusBrush(Shell.ServiceConnected, Shell.ModemProblem), Mode=OneWay}" />
+                <TextBlock Text="{x:Bind Shell.ModemText, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}" />
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>

@@ -1,0 +1,244 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="PHax.App.Views.SettingsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:PHax.App.Views"
+    xmlns:vm="using:PHax.App.ViewModels"
+    xmlns:profiles="using:PHax.Modem.Profiles">
+    <Page.Resources>
+        <Style x:Key="TabPanel" TargetType="StackPanel">
+            <Setter Property="Spacing" Value="10" />
+            <Setter Property="MaxWidth" Value="820" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+            <Setter Property="Padding" Value="0,8,16,24" />
+        </Style>
+        <Style x:Key="TabIntro" TargetType="TextBlock" BasedOn="{StaticResource BodyTextBlockStyle}">
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
+            <Setter Property="Margin" Value="0,0,0,8" />
+        </Style>
+    </Page.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <TextBlock Text="Settings" Style="{StaticResource PageTitle}" />
+
+        <SelectorBar x:Name="Tabs" Grid.Row="1" SelectionChanged="Tabs_SelectionChanged" Margin="-12,0,0,8">
+            <SelectorBarItem Text="Modem" Tag="modem" IsSelected="True">
+                <SelectorBarItem.Icon><FontIcon Glyph="&#xE717;" /></SelectorBarItem.Icon>
+            </SelectorBarItem>
+            <SelectorBarItem Text="General" Tag="general">
+                <SelectorBarItem.Icon><FontIcon Glyph="&#xE713;" /></SelectorBarItem.Icon>
+            </SelectorBarItem>
+            <SelectorBarItem Text="Incoming" Tag="incoming">
+                <SelectorBarItem.Icon><FontIcon Glyph="&#xE896;" /></SelectorBarItem.Icon>
+            </SelectorBarItem>
+            <SelectorBarItem Text="Outgoing" Tag="outgoing">
+                <SelectorBarItem.Icon><FontIcon Glyph="&#xE724;" /></SelectorBarItem.Icon>
+            </SelectorBarItem>
+            <SelectorBarItem Text="Redial" Tag="redial">
+                <SelectorBarItem.Icon><FontIcon Glyph="&#xE72C;" /></SelectorBarItem.Icon>
+            </SelectorBarItem>
+            <SelectorBarItem Text="Backup" Tag="backup">
+                <SelectorBarItem.Icon><FontIcon Glyph="&#xE8F1;" /></SelectorBarItem.Icon>
+            </SelectorBarItem>
+            <SelectorBarItem Text="Notifications" Tag="notifications">
+                <SelectorBarItem.Icon><FontIcon Glyph="&#xEA8F;" /></SelectorBarItem.Icon>
+            </SelectorBarItem>
+            <SelectorBarItem Text="Diagnostics" Tag="diagnostics">
+                <SelectorBarItem.Icon><FontIcon Glyph="&#xE90F;" /></SelectorBarItem.Icon>
+            </SelectorBarItem>
+        </SelectorBar>
+
+        <!-- Diagnostics has its own scrolling lists, so it is hosted outside the settings ScrollViewer. -->
+        <Frame x:Name="DiagnosticsFrame" Grid.Row="2" Visibility="Collapsed" />
+
+        <ScrollViewer x:Name="TabScroller" Grid.Row="2">
+            <Grid>
+                <!-- Modem -->
+                <StackPanel x:Name="ModemTab" Style="{StaticResource TabPanel}">
+                    <TextBlock Style="{StaticResource TabIntro}"
+                               Text="PHax drives Fax Class 1 / 1.0 modems directly. Class 2 modems are not supported. Only the PHax service opens the COM port." />
+                    <Grid ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <ComboBox Header="COM port" HorizontalAlignment="Stretch" ItemsSource="{x:Bind ViewModel.Ports}"
+                                  SelectedItem="{x:Bind ViewModel.SelectedPort, Mode=TwoWay}" DisplayMemberPath="Label" />
+                        <Button Grid.Column="1" Content="Detect ports" VerticalAlignment="Bottom" Click="RefreshPorts_Click" />
+                    </Grid>
+                    <ComboBox Header="Modem profile" HorizontalAlignment="Stretch" ItemsSource="{x:Bind ViewModel.Profiles}"
+                              SelectedIndex="{x:Bind ViewModel.ProfileIndex, Mode=TwoWay}">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="profiles:ModemProfile">
+                                <TextBlock Text="{x:Bind DisplayName}" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <TextBlock Text="{x:Bind ViewModel.ProfileNotes, Mode=OneWay}" TextWrapping="Wrap" Style="{StaticResource CaptionTextBlockStyle}" />
+                    <StackPanel Orientation="Horizontal" Spacing="16">
+                        <ComboBox Header="Baud rate" ItemsSource="{x:Bind ViewModel.BaudRateLabels}" SelectedIndex="{x:Bind ViewModel.BaudIndex, Mode=TwoWay}" MinWidth="160" />
+                        <CheckBox Content="Hardware flow control (RTS/CTS)" IsChecked="{x:Bind ViewModel.Settings.Modem.HardwareFlowControl, Mode=TwoWay}" VerticalAlignment="Bottom" />
+                        <CheckBox Content="Prefer Class 1.0" IsChecked="{x:Bind ViewModel.Settings.Modem.PreferClass10, Mode=TwoWay}" VerticalAlignment="Bottom" />
+                    </StackPanel>
+                    <CheckBox IsChecked="{x:Bind ViewModel.Settings.Modem.LineCompatibilityMode, Mode=TwoWay}">
+                        <TextBlock TextWrapping="Wrap" Text="VoIP / digital phone line compatibility: never use V.17 or MR compression when sending or receiving (maximum V.29 9600). Turn this on if pages are rejected or arrive garbled." />
+                    </CheckBox>
+                    <TextBox Header="Additional initialization commands (one per line)" AcceptsReturn="True" Height="90" FontFamily="Consolas"
+                             Text="{x:Bind ViewModel.Settings.Modem.ExtraInitCommands, Mode=TwoWay}" />
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button Content="Test connection" Click="Probe_Click" IsEnabled="{x:Bind local:Bind.Not(ViewModel.IsBusy), Mode=OneWay}" />
+                        <Button Content="Reset modem" Click="Reset_Click" />
+                        <ProgressRing IsActive="{x:Bind ViewModel.IsBusy, Mode=OneWay}" Width="20" Height="20" />
+                    </StackPanel>
+                    <InfoBar IsOpen="{x:Bind ViewModel.ProbeVisible, Mode=OneWay}" IsClosable="True"
+                             Title="{x:Bind ViewModel.ProbeTitle, Mode=OneWay}" Message="{x:Bind ViewModel.ProbeSummary, Mode=OneWay}"
+                             Severity="{x:Bind local:SettingsPage.ProbeSeverity(ViewModel.ProbeWarning, ViewModel.IsBusy), Mode=OneWay}"
+                             CloseButtonClick="ProbeInfo_Closed">
+                        <InfoBar.ActionButton>
+                            <Button Content="{x:Bind local:SettingsPage.DetailsLabel(ViewModel.ShowProbeDetails), Mode=OneWay}" Click="ProbeDetails_Click"
+                                    Visibility="{x:Bind local:Bind.VisibleIfText(ViewModel.ProbeDetails), Mode=OneWay}" />
+                        </InfoBar.ActionButton>
+                        <InfoBar.Content>
+                            <TextBlock Text="{x:Bind ViewModel.ProbeDetails, Mode=OneWay}" TextWrapping="Wrap" FontFamily="Consolas" FontSize="12"
+                                       IsTextSelectionEnabled="True" Margin="0,0,0,12"
+                                       Visibility="{x:Bind local:Bind.Visible(ViewModel.ShowProbeDetails), Mode=OneWay}" />
+                        </InfoBar.Content>
+                    </InfoBar>
+                    <CheckBox Content="Developer: use the built-in simulator instead of a modem (no faxes reach the phone line)"
+                              IsChecked="{x:Bind ViewModel.Settings.Modem.UseSimulator, Mode=TwoWay}" />
+                </StackPanel>
+
+                <!-- General -->
+                <StackPanel x:Name="GeneralTab" Style="{StaticResource TabPanel}" Visibility="Collapsed">
+                    <TextBlock Style="{StaticResource TabIntro}" Text="How the PHax window starts and where documents are stored." />
+                    <CheckBox Content="Start with Windows" IsChecked="{x:Bind ViewModel.Settings.General.StartWithWindows, Mode=TwoWay}" />
+                    <CheckBox Content="Minimize to system tray when closed" IsChecked="{x:Bind ViewModel.Settings.General.MinimizeToTray, Mode=TwoWay}" />
+                    <CheckBox Content="Start minimized" IsChecked="{x:Bind ViewModel.Settings.General.StartMinimized, Mode=TwoWay}" />
+                    <CheckBox Content="Enable application logging" IsChecked="{x:Bind ViewModel.Settings.General.EnableLogging, Mode=TwoWay}" />
+                    <local:FolderField Header="Storage directory (empty = ProgramData\PHax\Storage)" Path="{x:Bind ViewModel.Settings.General.StorageDirectory, Mode=TwoWay}" />
+                </StackPanel>
+
+                <!-- Incoming -->
+                <StackPanel x:Name="IncomingTab" Style="{StaticResource TabPanel}" Visibility="Collapsed">
+                    <TextBlock Style="{StaticResource TabIntro}" Text="Answering calls and saving received faxes." />
+                    <CheckBox Content="Automatically receive incoming faxes" IsChecked="{x:Bind ViewModel.Settings.Incoming.AutoReceive, Mode=TwoWay}" />
+                    <NumberBox Header="Answer after rings" Minimum="1" Maximum="10" SpinButtonPlacementMode="Inline" Width="200" HorizontalAlignment="Left"
+                               Value="{x:Bind ViewModel.AnswerAfterRings, Mode=TwoWay}" />
+                    <TextBlock Text="When automatic reception is off, answer calls from the Incoming page." Style="{StaticResource CaptionTextBlockStyle}" />
+                    <CheckBox Content="Automatically save received faxes to the receiving folder" IsChecked="{x:Bind ViewModel.Settings.Incoming.AutoSave, Mode=TwoWay}" />
+                    <CheckBox Content="Automatically convert received faxes to PDF" IsChecked="{x:Bind ViewModel.Settings.Incoming.AutoConvertToPdf, Mode=TwoWay}" />
+                    <local:FolderField Header="Receiving folder (copy of each completed fax)" Path="{x:Bind ViewModel.Settings.Incoming.ReceiveFolder, Mode=TwoWay}" />
+                    <TextBox Header="Station identifier (CSI/TSI, up to 20 digits)" MaxLength="20" Width="320" HorizontalAlignment="Left"
+                             Text="{x:Bind ViewModel.Settings.Incoming.LocalStationId, Mode=TwoWay}" />
+
+                    <TextBlock Text="Automatic printing" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,12,0,0" />
+                    <CheckBox x:Name="AutoPrintCheck" Content="Automatically print received faxes"
+                              IsChecked="{x:Bind ViewModel.Settings.Incoming.AutoPrint, Mode=TwoWay}" />
+                    <Grid ColumnSpacing="8" MaxWidth="560" HorizontalAlignment="Left">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <ComboBox Header="Printer" HorizontalAlignment="Stretch" MinWidth="360"
+                                  ItemsSource="{x:Bind ViewModel.Printers}" SelectedIndex="{x:Bind ViewModel.PrinterIndex, Mode=TwoWay}"
+                                  IsEnabled="{x:Bind AutoPrintCheck.IsChecked.Value, Mode=OneWay}" />
+                        <Button Grid.Column="1" Content="Refresh" VerticalAlignment="Bottom" Click="RefreshPrinters_Click" />
+                    </Grid>
+                    <TextBlock Text="{x:Bind ViewModel.PrinterNote, Mode=OneWay}" TextWrapping="Wrap" Style="{StaticResource CaptionTextBlockStyle}" />
+                    <TextBlock TextWrapping="Wrap" Style="{StaticResource CaptionTextBlockStyle}"
+                               Text="Only completely received faxes are printed. If printing fails, the fax is still saved in the Inbox and a notification is shown." />
+                </StackPanel>
+
+                <!-- Outgoing -->
+                <StackPanel x:Name="OutgoingTab" Style="{StaticResource TabPanel}" Visibility="Collapsed">
+                    <TextBlock Style="{StaticResource TabIntro}" Text="Dialing, speed and cover page defaults for faxes you send." />
+                    <CheckBox Content="Enable sending faxes" IsChecked="{x:Bind ViewModel.Settings.Outgoing.EnableSending, Mode=TwoWay}" />
+                    <StackPanel Orientation="Horizontal" Spacing="16">
+                        <TextBox Header="Dialing prefix" Width="160" Text="{x:Bind ViewModel.Settings.Outgoing.DialPrefix, Mode=TwoWay}" />
+                        <ComboBox Header="Maximum speed" ItemsSource="{x:Bind ViewModel.SpeedLabels}" SelectedIndex="{x:Bind ViewModel.SpeedIndex, Mode=TwoWay}" MinWidth="160" />
+                        <NumberBox Header="Transmission timeout (s)" Minimum="60" Maximum="7200" SpinButtonPlacementMode="Compact" Width="200"
+                                   Value="{x:Bind ViewModel.TransmissionTimeout, Mode=TwoWay}" />
+                    </StackPanel>
+                    <CheckBox Content="Include a cover page by default" IsChecked="{x:Bind ViewModel.Settings.Outgoing.DefaultCoverPage, Mode=TwoWay}" />
+                    <TextBox Header="Cover page sender name" Text="{x:Bind ViewModel.Settings.Outgoing.CoverPageFrom, Mode=TwoWay}" />
+                    <CheckBox Content="Send in fine resolution when supported (204 x 196 dpi)" IsChecked="{x:Bind ViewModel.Settings.Outgoing.UseFineResolution, Mode=TwoWay}" />
+                    <CheckBox Content="Allow MR (2D) compression" IsChecked="{x:Bind ViewModel.Settings.Outgoing.AllowMrCompression, Mode=TwoWay}" />
+                    <CheckBox Content="Tone dialing" IsChecked="{x:Bind ViewModel.Settings.Outgoing.ToneDialing, Mode=TwoWay}" />
+                </StackPanel>
+
+                <!-- Redial -->
+                <StackPanel x:Name="RedialTab" Style="{StaticResource TabPanel}" Visibility="Collapsed">
+                    <TextBlock Style="{StaticResource TabIntro}"
+                               Text="Cancelled jobs and permanent failures are never retried. If pages were transmitted but not confirmed, the fax is marked Unconfirmed and is not retried automatically, to avoid duplicates." />
+                    <CheckBox Content="Automatically redial failed faxes" IsChecked="{x:Bind ViewModel.Settings.Redial.Enabled, Mode=TwoWay}" />
+                    <StackPanel Orientation="Horizontal" Spacing="16">
+                        <NumberBox Header="Maximum attempts" Minimum="1" Maximum="20" SpinButtonPlacementMode="Inline" Width="180" Value="{x:Bind ViewModel.MaxAttempts, Mode=TwoWay}" />
+                        <NumberBox Header="Delay between attempts (min)" Minimum="1" Maximum="240" SpinButtonPlacementMode="Inline" Width="220" Value="{x:Bind ViewModel.DelayMinutes, Mode=TwoWay}" />
+                    </StackPanel>
+                    <CheckBox Content="Retry on busy" IsChecked="{x:Bind ViewModel.Settings.Redial.RetryOnBusy, Mode=TwoWay}" />
+                    <CheckBox Content="Retry on no answer" IsChecked="{x:Bind ViewModel.Settings.Redial.RetryOnNoAnswer, Mode=TwoWay}" />
+                    <CheckBox Content="Retry on recoverable communication failure" IsChecked="{x:Bind ViewModel.Settings.Redial.RetryOnCommunicationFailure, Mode=TwoWay}" />
+                </StackPanel>
+
+                <!-- Backup -->
+                <StackPanel x:Name="BackupTab" Style="{StaticResource TabPanel}" Visibility="Collapsed">
+                    <TextBlock Style="{StaticResource TabIntro}" Text="Zip backups of faxes, the database and logs." />
+                    <CheckBox Content="Enable automatic (scheduled) backup" IsChecked="{x:Bind ViewModel.Settings.Backup.Enabled, Mode=TwoWay}" />
+                    <local:FolderField Header="Backup directory (empty = ProgramData\PHax\Backups)" Path="{x:Bind ViewModel.Settings.Backup.BackupDirectory, Mode=TwoWay}" />
+                    <StackPanel Orientation="Horizontal" Spacing="16">
+                        <NumberBox Header="Every (hours)" Minimum="1" Maximum="720" SpinButtonPlacementMode="Compact" Width="160" Value="{x:Bind ViewModel.BackupInterval, Mode=TwoWay}" />
+                        <NumberBox Header="Backups to keep" Minimum="1" Maximum="365" SpinButtonPlacementMode="Compact" Width="160" Value="{x:Bind ViewModel.KeepBackups, Mode=TwoWay}" />
+                    </StackPanel>
+                    <TextBlock Text="Include" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,8,0,0" />
+                    <StackPanel Orientation="Horizontal" Spacing="16">
+                        <CheckBox Content="Inbox" IsChecked="{x:Bind ViewModel.Settings.Backup.IncludeInbox, Mode=TwoWay}" />
+                        <CheckBox Content="Sent" IsChecked="{x:Bind ViewModel.Settings.Backup.IncludeSent, Mode=TwoWay}" />
+                        <CheckBox Content="Drafts" IsChecked="{x:Bind ViewModel.Settings.Backup.IncludeDrafts, Mode=TwoWay}" />
+                        <CheckBox Content="Database" IsChecked="{x:Bind ViewModel.Settings.Backup.IncludeDatabase, Mode=TwoWay}" />
+                        <CheckBox Content="Transmission logs" IsChecked="{x:Bind ViewModel.Settings.Backup.IncludeLogs, Mode=TwoWay}" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,8,0,0">
+                        <Button Content="Back up now" Click="Backup_Click" />
+                        <Button Content="Restore from backup…" Click="Restore_Click" />
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- Notifications -->
+                <StackPanel x:Name="NotificationsTab" Style="{StaticResource TabPanel}" Visibility="Collapsed">
+                    <TextBlock Style="{StaticResource TabIntro}" Text="Windows notifications shown while the PHax app is running." />
+                    <CheckBox Content="Fax received" IsChecked="{x:Bind ViewModel.Settings.Notifications.OnReceived, Mode=TwoWay}" />
+                    <CheckBox Content="Fax sent successfully" IsChecked="{x:Bind ViewModel.Settings.Notifications.OnSent, Mode=TwoWay}" />
+                    <CheckBox Content="Fax failed" IsChecked="{x:Bind ViewModel.Settings.Notifications.OnFailed, Mode=TwoWay}" />
+                    <CheckBox Content="Retry scheduled" IsChecked="{x:Bind ViewModel.Settings.Notifications.OnRetryScheduled, Mode=TwoWay}" />
+                    <CheckBox Content="Modem disconnected" IsChecked="{x:Bind ViewModel.Settings.Notifications.OnModemDisconnected, Mode=TwoWay}" />
+                    <CheckBox Content="Play notification sounds" IsChecked="{x:Bind ViewModel.Settings.Notifications.PlaySound, Mode=TwoWay}" />
+                    <CheckBox Content="Show a progress window at the top of the screen while a fax is being sent or received"
+                              IsChecked="{x:Bind ViewModel.Settings.Notifications.ShowProgressPopup, Mode=TwoWay}" Margin="0,8,0,0" />
+                    <StackPanel Orientation="Horizontal" Spacing="12" Margin="0,8,0,0">
+                        <Button Content="Send test notification" Click="TestNotification_Click" />
+                        <TextBlock x:Name="TestNotificationResult" VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="560"
+                                   Style="{StaticResource CaptionTextBlockStyle}" />
+                    </StackPanel>
+                </StackPanel>
+            </Grid>
+        </ScrollViewer>
+
+        <Grid x:Name="SaveBar" Grid.Row="3" Padding="0,12,0,0" ColumnSpacing="12" BorderThickness="0,1,0,0" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Button Content="Save settings" Style="{StaticResource AccentButtonStyle}" Click="Save_Click" MinWidth="140" />
+            <TextBlock Grid.Column="1" Text="{x:Bind ViewModel.SaveMessage, Mode=OneWay}" VerticalAlignment="Center" TextWrapping="Wrap"
+                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+        </Grid>
+    </Grid>
+</Page>

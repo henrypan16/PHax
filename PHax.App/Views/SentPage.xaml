@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="PHax.App.Views.SentPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:PHax.App.Views"
+    xmlns:vm="using:PHax.App.ViewModels">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        <TextBlock Text="Sent" Style="{StaticResource PageTitle}" />
+        <Grid Grid.Row="1" Margin="0,0,0,8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="280" />
+            </Grid.ColumnDefinitions>
+            <CommandBar HorizontalAlignment="Left" DefaultLabelPosition="Right" IsEnabled="{x:Bind local:Bind.IsNotNull(ViewModel.Selected), Mode=OneWay}">
+                <AppBarButton Icon="Preview" Label="Preview" Click="Preview_Click" />
+                <AppBarButton Icon="Print" Label="Print" Click="Print_Click" />
+                <AppBarButton Icon="Send" Label="Resend" Click="Resend_Click" />
+                <AppBarButton Icon="Save" Label="Export PDF" Click="ExportPdf_Click" />
+                <AppBarButton Icon="SaveLocal" Label="Export TIFF" Click="ExportTiff_Click" />
+                <AppBarButton Icon="Delete" Label="Delete" Click="Delete_Click" />
+            </CommandBar>
+            <AutoSuggestBox Grid.Column="1" PlaceholderText="Search" QueryIcon="Find" VerticalAlignment="Center"
+                            Text="{x:Bind ViewModel.Search, Mode=TwoWay}" />
+        </Grid>
+        <ListView Grid.Row="2" ItemsSource="{x:Bind ViewModel.Items}" SelectedItem="{x:Bind ViewModel.Selected, Mode=TwoWay}"
+                  IsDoubleTapEnabled="True" DoubleTapped="List_DoubleTapped">
+            <ListView.ItemTemplate>
+                <DataTemplate x:DataType="vm:OutboundItem">
+                    <Grid Padding="0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Spacing="2">
+                            <TextBlock Text="{x:Bind Title, Mode=OneWay}" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                            <TextBlock Text="{x:Bind Number, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}" />
+                            <TextBlock Text="{x:Bind ConfirmationText, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="Wrap"
+                                       Foreground="{ThemeResource SystemFillColorSuccessBrush}" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Spacing="2" HorizontalAlignment="Right" MinWidth="180">
+                            <TextBlock Text="{x:Bind SentText, Mode=OneWay}" HorizontalAlignment="Right" />
+                            <TextBlock Text="{x:Bind PagesText, Mode=OneWay}" HorizontalAlignment="Right" Style="{StaticResource CaptionTextBlockStyle}" />
+                            <TextBlock Text="{x:Bind DurationText, Mode=OneWay}" HorizontalAlignment="Right" Style="{StaticResource CaptionTextBlockStyle}" />
+                            <TextBlock Text="{x:Bind StatusText, Mode=OneWay}" HorizontalAlignment="Right" Style="{StaticResource CaptionTextBlockStyle}" />
+                        </StackPanel>
+                    </Grid>
+                </DataTemplate>
+            </ListView.ItemTemplate>
+        </ListView>
+        <TextBlock Grid.Row="2" Text="No sent faxes." Visibility="{x:Bind local:Bind.Visible(ViewModel.IsEmpty), Mode=OneWay}"
+                   HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+    </Grid>
+</Page>
