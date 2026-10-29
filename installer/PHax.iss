@@ -1,10 +1,21 @@
 ; PHax installer (Inno Setup 6). Built by scripts\build.ps1, which publishes to ..\out first and passes
-; /DAppVersion=x.y.z. Produces out\installer\PHax-Setup-<version>.exe.
+; /DAppVersion=x.y.z. Produces out\installer\PHax-Setup-<version>.exe, or PHax-<Edition>-Setup-<version>.exe when
+; /DEdition=<Name> is passed (the integration DLL is already in out\App). Both editions share the AppId, so
+; installing one over the other switches edition in place.
 
 #ifndef AppVersion
   #define AppVersion "0.1.0"
 #endif
 #define AppName "PHax"
+#ifdef Edition
+  #define EditionPrefix Edition + "-"
+  #define EditionLabel " " + Edition
+  #define StartupNote " (needed for " + Edition + " faxes)"
+#else
+  #define EditionPrefix ""
+  #define EditionLabel ""
+  #define StartupNote ""
+#endif
 #define Root ".."
 
 [Setup]
@@ -13,7 +24,7 @@
 AppId={{A7980E80-1D40-4932-9DBD-C95001E6E75F}
 AppName={#AppName}
 AppVersion={#AppVersion}
-AppVerName={#AppName} {#AppVersion}
+AppVerName={#AppName}{#EditionLabel} {#AppVersion}
 AppPublisher=Phan Software
 AppCopyright=Copyright (C) 2026 Henry Phan (Phan Software)
 VersionInfoVersion={#AppVersion}
@@ -31,7 +42,7 @@ WizardSmallImageFile={#Root}\PHax.App\Assets\wizard-small.bmp
 UninstallDisplayIcon={app}\App\PHax.exe
 UninstallDisplayName={#AppName}
 OutputDir={#Root}\out\installer
-OutputBaseFilename=PHax-Setup-{#AppVersion}
+OutputBaseFilename=PHax-{#EditionPrefix}Setup-{#AppVersion}
 Compression=lzma2/ultra64
 SolidCompression=yes
 LZMAUseSeparateProcess=yes
@@ -40,8 +51,12 @@ CloseApplications=no
 RestartApplications=no
 
 [Tasks]
-Name: "startup"; Description: "Start PHax automatically when a user signs in"; GroupDescription: "Startup:"
+Name: "startup"; Description: "Start PHax automatically when a user signs in{#StartupNote}"; GroupDescription: "Startup:"
 Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription: "Shortcuts:"; Flags: unchecked
+
+[InstallDelete]
+; Integrations from a previous install; this edition's own (if any) is reinstalled from out\App.
+Type: files; Name: "{app}\App\PHax.Integration.*"
 
 [Files]
 Source: "{#Root}\out\App\*"; DestDir: "{app}\App"; Flags: ignoreversion recursesubdirs createallsubdirs

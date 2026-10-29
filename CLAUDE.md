@@ -6,8 +6,7 @@ Guidance for Claude Code when working in this repository.
 
 PHax: a Windows fax app (WinUI 3 desktop app + Windows Service) that talks to USB **Fax Class 1 / 1.0** modems
 directly. The T.30 protocol, Class 1 AT driver and T.4/T.6 codecs are implemented in this repo (no Windows Fax
-Service, no Class 2, no external fax engine). The project was called **FTIFax** until version 0.1.9; legacy
-handling for that name is intentional (see "Rename" below).
+Service, no Class 2, no external fax engine).
 
 ## Commands
 
@@ -33,6 +32,11 @@ powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1 [-SkipTests]       
 - `PHax.Imaging`: `T4Encoder`/`T4Decoder` (MH, MR, T.6), `TiffFax`, `PdfFax`, `DocumentRasterizer` (PDF via
   Windows.Data.Pdf, images via GDI+, Word via Office COM/LibreOffice).
 - App-only features (need the user's session): toasts, progress popup, tray icon, single instance. Service-side: auto-print, backups, redial.
+- Integrations (editions): `PHax.Core/Integrations`. The app loads `PHax.Integration.*.dll` from its folder at startup
+  (`IntegrationLoader`); integrations implement `IAppIntegration` and use `IFaxSubmitter`/`IUserNotifier`; their
+  settings live in `AppSettings.Integration` (free-form keys, preserved by builds without them). Integration code lives
+  in separate private repos next to this one; `build.ps1 -Edition <Name>` builds `..\PHax.<Name>` into the app and
+  names the installer `PHax-<Name>-Setup-<version>.exe`. Keep this repo vendor-neutral.
 
 ## Invariants — do not break
 
@@ -46,7 +50,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1 [-SkipTests]       
 ## Hardware and testing realities
 
 - **The development PC has no modem or COM ports.** Real-modem behaviour is only observed on the user's fax PCs
-  (Conexant CX93001 on COM3) via installer builds; they send back *Settings → Diagnostics → Export logs*.
+  (Conexant CX93001 on COM3) via installer builds; they send back _Settings → Diagnostics → Export logs_.
   Simulation tests do **not** exercise `SerialPortTransport` / `System.IO.Ports`.
 - Treat changes to the serial layer as high risk. Past regressions: closing an idle port hung (async reads
   ignore timeouts), a failed init leaked the port handle ("COM3 in use" by the service itself), and
@@ -67,10 +71,3 @@ powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1 [-SkipTests]       
 - Do not edit C# containing `'\r'`, `'\n'` or backslash paths through shell heredocs/Python string literals —
   escapes get mangled. Use the Edit/Write tools, or a script file.
 - Commit only when the user asks.
-
-## Rename (FTIFax → PHax)
-
-Installs made before 0.2.0 used the name FTIFax. Intentional legacy references:
-`AppPaths.MigrateLegacyData` (moves `ProgramData\FTIFax`, renames `ftifax.db`), `StartupRegistration`/`AppNotifications`
-(remove old registry entries), and `RemoveLegacyFTIFax` in the installer (removes the old service and runs the old
-uninstaller silently, which keeps data).

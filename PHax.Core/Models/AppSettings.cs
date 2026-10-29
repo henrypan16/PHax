@@ -1,3 +1,6 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
+
 namespace PHax.Core.Models;
 
 /// <summary>All user settings. Persisted as a single JSON document in the AppSettings table.</summary>
@@ -10,6 +13,21 @@ public class AppSettings
     public BackupSettings Backup { get; set; } = new();
     public NotificationSettings Notifications { get; set; } = new();
     public ModemSettings Modem { get; set; } = new();
+    public IntegrationSettings Integration { get; set; } = new();
+}
+
+/// <summary>
+/// Settings owned by optional integrations, stored as free-form keys so they survive saves by builds that do not
+/// include the integration.
+/// </summary>
+public class IntegrationSettings
+{
+    [JsonExtensionData] public Dictionary<string, JsonElement> Values { get; set; } = [];
+
+    public bool GetBool(string key, bool fallback) =>
+        Values.TryGetValue(key, out var v) && v.ValueKind is JsonValueKind.True or JsonValueKind.False ? v.GetBoolean() : fallback;
+
+    public void SetBool(string key, bool value) => Values[key] = JsonSerializer.SerializeToElement(value);
 }
 
 public class GeneralSettings

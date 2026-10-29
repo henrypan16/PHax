@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using PHax.App.Services;
+using PHax.Core.Integrations;
 using PHax.Core.Ipc;
 using PHax.Core.Models;
 using PHax.Data;
@@ -11,8 +12,22 @@ namespace PHax.App.ViewModels;
 
 public sealed record PortChoice(string PortName, string Label);
 
+/// <summary>One installed integration on the Integrations tab; the check box edits the settings being edited.</summary>
+public sealed class IntegrationItem(IAppIntegration integration, IntegrationSettings settings)
+{
+    public string Title => integration.Title;
+    public string Description => integration.Description;
+    public string EnabledLabel => integration.EnabledLabel;
+    public string Status => $"Status: {integration.Status}";
+    public bool Enabled
+    {
+        get => settings.GetBool(integration.EnabledSetting, true);
+        set => settings.SetBool(integration.EnabledSetting, value);
+    }
+}
+
 /// <summary>Settings editor. Numeric settings are exposed as doubles for NumberBox two-way binding.</summary>
-public sealed partial class SettingsViewModel(SettingsStore store, ServiceClient client) : ObservableObject
+public sealed partial class SettingsViewModel(SettingsStore store, ServiceClient client, IEnumerable<IAppIntegration> integrations) : ObservableObject
 {
     public static readonly int[] BaudRates = [9600, 19200, 38400, 57600, 115200];
     public static readonly int[] Speeds = [14400, 12000, 9600, 7200, 4800, 2400];
@@ -30,6 +45,9 @@ public sealed partial class SettingsViewModel(SettingsStore store, ServiceClient
     [ObservableProperty] public partial string SaveMessage { get; set; } = "";
 
     public ObservableCollection<PortChoice> Ports { get; } = [];
+
+    public bool HasIntegrations { get; } = integrations.Any();
+    [ObservableProperty] public partial IReadOnlyList<IntegrationItem> Integrations { get; set; } = [];
 
     private const string DefaultPrinterLabel = "(Default printer)";
     public ObservableCollection<string> Printers { get; } = [];
@@ -109,6 +127,7 @@ public sealed partial class SettingsViewModel(SettingsStore store, ServiceClient
     public async Task LoadAsync()
     {
         Settings = await store.LoadAsync();
+        Integrations = integrations.Select(i => new IntegrationItem(i, Settings.Integration)).ToList();
         RefreshPorts();
         await RefreshPrintersAsync();
         OnPropertyChanged(string.Empty);

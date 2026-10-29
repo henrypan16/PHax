@@ -1,6 +1,7 @@
 using PHax.App.Services;
 using PHax.App.ViewModels;
 using PHax.App.Views;
+using PHax.Core.Integrations;
 using PHax.Core.Services;
 using PHax.Data;
 using Microsoft.EntityFrameworkCore;
@@ -60,6 +61,10 @@ public partial class App : Application
         services.AddSingleton<SentViewModel>();
         services.AddTransient<SettingsViewModel>();
         services.AddTransient<ComposeViewModel>();
+        services.AddSingleton<IntegrationHost>();
+        services.AddSingleton<IFaxSubmitter>(sp => sp.GetRequiredService<IntegrationHost>());
+        services.AddSingleton<IUserNotifier>(sp => sp.GetRequiredService<IntegrationHost>());
+        foreach (var message in IntegrationLoader.Load(services, AppContext.BaseDirectory)) Log.Information("{Message}", message);
         _services = services.BuildServiceProvider();
 
         string? startupError = null;
@@ -83,11 +88,22 @@ public partial class App : Application
         SingleInstance.Listen(() => UiThread.Post(() => Shell.BringToFront()));
         GetService<TransmissionPopupController>().Start();
         GetService<ServiceClient>().Start();
+        if (startupError is null) StartIntegrations();
+    }
+
+    private static void StartIntegrations()
+    {
+        foreach (var integration in _services!.GetServices<IAppIntegration>())
+        {
+            try { integration.Start(); }
+            catch (Exception ex) { Log.Error(ex, "Integration {Integration} failed to start", integration.Title); }
+        }
     }
 
     public static async Task ShutdownAsync()
     {
         GetService<AppNotifications>().Unregister();
+        foreach (var integration in _services!.GetServices<IAppIntegration>()) integration.Dispose();
         await GetService<ServiceClient>().DisposeAsync();
         await Log.CloseAndFlushAsync();
         Current.Exit();

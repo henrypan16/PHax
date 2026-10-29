@@ -26,6 +26,13 @@ public sealed class ComposeData
     public bool IncludeCoverPage { get; init; }
     public string CoverMessage { get; init; } = "";
     public IReadOnlyList<ComposeAttachment> Attachments { get; init; } = [];
+
+    // Cover page overrides (used by integrations); null = use the values from Settings.
+    public string? CoverFrom { get; init; }
+    public string? CoverFromFax { get; init; }
+    public string? CoverFromPhone { get; init; }
+    public string? CoverFromAddress { get; init; }
+    public string? CoverToAddress { get; init; }
 }
 
 /// <summary>Persists drafts and prepares fax documents (rasterisation, cover page, T.6 TIFF) before queuing.</summary>
@@ -105,8 +112,13 @@ public sealed class FaxDocumentService(IDbContextFactory<FaxDbContext> dbFactory
             {
                 progress?.Report("Rendering cover page…");
                 pages.Insert(0, CoverPageRenderer.Render(new CoverPageInfo(job.RecipientName, job.FaxNumber,
-                    settings.Outgoing.CoverPageFrom, settings.Incoming.LocalStationId,
-                    job.Subject, job.CoverMessage, pages.Count + 1, DateTime.Now)));
+                    data.CoverFrom ?? settings.Outgoing.CoverPageFrom, data.CoverFromFax ?? settings.Incoming.LocalStationId,
+                    job.Subject, job.CoverMessage, pages.Count + 1, DateTime.Now)
+                {
+                    ToAddress = data.CoverToAddress ?? "",
+                    FromAddress = data.CoverFromAddress ?? "",
+                    FromPhone = data.CoverFromPhone ?? "",
+                }));
             }
             progress?.Report("Encoding fax document…");
             var doc = Path.Combine(jobDir, "fax.tif");
@@ -124,6 +136,30 @@ public sealed class FaxDocumentService(IDbContextFactory<FaxDbContext> dbFactory
         }
         await db.SaveChangesAsync();
         if (queue) await client.TrySendAsync(PipeCommands.JobSubmitted, new JobRef(job.Id));
+        return job;
+    }
+
+    /// <summary>
+    /// Records a fax that could not be prepared (e.g. its document is missing) as a Failed job in the Outbox, so the
+    /// error is visible next to the other outgoing faxes. Nothing is dialed.
+    /// </summary>
+    public async Task<OutboundFax> CreateFailedAsync(ComposeData data, string error)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync();
+        var job = new OutboundFax
+        {
+            RecipientName = data.RecipientName.Trim(),
+            FaxNumber = data.FaxNumber.Trim(),
+            Subject = data.Subject.Trim(),
+            IncludeCoverPage = data.IncludeCoverPage,
+            CoverMessage = data.CoverMessage,
+            Status = OutboundStatus.Failed,
+            LastOutcome = FaxOutcome.PermanentFailure,
+            LastError = error,
+            MaxAttempts = 0,
+        };
+        db.OutboundFaxes.Add(job);
+        await db.SaveChangesAsync();
         return job;
     }
 

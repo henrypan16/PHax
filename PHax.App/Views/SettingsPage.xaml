@@ -45,6 +45,9 @@
             <SelectorBarItem Text="Redial" Tag="redial">
                 <SelectorBarItem.Icon><FontIcon Glyph="&#xE72C;" /></SelectorBarItem.Icon>
             </SelectorBarItem>
+            <SelectorBarItem x:Name="IntegrationsTabItem" Text="Integrations" Tag="integrations">
+                <SelectorBarItem.Icon><FontIcon Glyph="&#xE8B7;" /></SelectorBarItem.Icon>
+            </SelectorBarItem>
             <SelectorBarItem Text="Backup" Tag="backup">
                 <SelectorBarItem.Icon><FontIcon Glyph="&#xE8F1;" /></SelectorBarItem.Icon>
             </SelectorBarItem>
@@ -186,6 +189,22 @@
                     <CheckBox Content="Retry on busy" IsChecked="{x:Bind ViewModel.Settings.Redial.RetryOnBusy, Mode=TwoWay}" />
                     <CheckBox Content="Retry on no answer" IsChecked="{x:Bind ViewModel.Settings.Redial.RetryOnNoAnswer, Mode=TwoWay}" />
                     <CheckBox Content="Retry on recoverable communication failure" IsChecked="{x:Bind ViewModel.Settings.Redial.RetryOnCommunicationFailure, Mode=TwoWay}" />
+                </StackPanel>
+
+                <!-- Integrations: optional add-ons; the tab is hidden when none is installed -->
+                <StackPanel x:Name="IntegrationsTab" Style="{StaticResource TabPanel}" Visibility="Collapsed">
+                    <ItemsControl ItemsSource="{x:Bind ViewModel.Integrations, Mode=OneWay}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:IntegrationItem">
+                                <StackPanel Spacing="8" Margin="0,0,0,24">
+                                    <TextBlock Text="{x:Bind Title}" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                                    <TextBlock Text="{x:Bind Description}" TextWrapping="Wrap" />
+                                    <CheckBox Content="{x:Bind EnabledLabel}" IsChecked="{x:Bind Enabled, Mode=TwoWay}" />
+                                    <TextBlock Text="{x:Bind Status}" TextWrapping="Wrap" Style="{StaticResource CaptionTextBlockStyle}" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
                 </StackPanel>
 
                 <!-- Backup -->

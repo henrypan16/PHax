@@ -11,6 +11,7 @@ public sealed partial class SettingsPage : Page
     public SettingsPage()
     {
         InitializeComponent();
+        if (!ViewModel.HasIntegrations) IntegrationsTabItem.Visibility = Visibility.Collapsed;
         Loaded += async (_, _) =>
         {
             await ViewModel.LoadAsync();
@@ -64,7 +65,7 @@ public sealed partial class SettingsPage : Page
         var panels = new Dictionary<string, StackPanel>
         {
             ["modem"] = ModemTab, ["general"] = GeneralTab, ["incoming"] = IncomingTab, ["outgoing"] = OutgoingTab,
-            ["redial"] = RedialTab,["backup"] = BackupTab, ["notifications"] = NotificationsTab,
+            ["redial"] = RedialTab, ["integrations"] = IntegrationsTab, ["backup"] = BackupTab, ["notifications"] = NotificationsTab,
         };
         foreach (var (key, panel) in panels) panel.Visibility = key == tag ? Visibility.Visible : Visibility.Collapsed;
 
