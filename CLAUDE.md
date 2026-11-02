@@ -31,7 +31,12 @@ powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1 [-SkipTests]       
   → `Class1/Class1Modem` (T.31 primitives) → `T30/T30Sender`, `T30/T30Receiver` (state machines).
 - `PHax.Imaging`: `T4Encoder`/`T4Decoder` (MH, MR, T.6), `TiffFax`, `PdfFax`, `DocumentRasterizer` (PDF via
   Windows.Data.Pdf, images via GDI+, Word via Office COM/LibreOffice).
-- App-only features (need the user's session): toasts, progress popup, tray icon, single instance. Service-side: auto-print, backups, redial.
+- App-only features (need the user's session): toasts, progress popup, tray icon, single instance, scanning.
+  Service-side: auto-print, backups, redial.
+- Scanning: `PHax.App/Services/ScannerService` wraps NAPS2.Sdk (LGPL; keep its DLLs separate, unmodified, and listed
+  in NOTICE). WIA in-process; TWAIN only via NAPS2's x86 worker (`NAPS2.Worker.exe`, x64 build only), because the
+  drivers are 32-bit and in-process 64-bit TWAIN hung without a 64-bit TWAINDSM. Scans become fax TIFFs via `Bilevel`
+  and are added as ordinary attachments. The dev PC has no scanner, so scanning is verified only on the fax PCs.
 - Integrations (editions): `PHax.Core/Integrations`. The app loads `PHax.Integration.*.dll` from its folder at startup
   (`IntegrationLoader`); integrations implement `IAppIntegration` and use `IFaxSubmitter`/`IUserNotifier`; their
   settings live in `AppSettings.Integration` (free-form keys, preserved by builds without them). Integration code lives

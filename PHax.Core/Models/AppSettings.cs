@@ -13,7 +13,23 @@ public class AppSettings
     public BackupSettings Backup { get; set; } = new();
     public NotificationSettings Notifications { get; set; } = new();
     public ModemSettings Modem { get; set; } = new();
+    public ScanSettings Scanning { get; set; } = new();
     public IntegrationSettings Integration { get; set; } = new();
+}
+
+/// <summary>Choices remembered by the Scan dialog (app-only; the service never scans).</summary>
+public class ScanSettings
+{
+    /// <summary>Last used scanner as "Driver|DeviceId"; empty = the first one found.</summary>
+    public string Scanner { get; set; } = "";
+    /// <summary>NAPS2 paper source name: Auto, Flatbed, Feeder or Duplex.</summary>
+    public string PaperSource { get; set; } = "Auto";
+    /// <summary>Letter, Legal or A4.</summary>
+    public string PageSize { get; set; } = "Letter";
+    /// <summary>Bilevel conversion: Auto, Threshold (text) or Dither (photos).</summary>
+    public string Mode { get; set; } = "Auto";
+    /// <summary>Show the driver's own settings window instead of scanning with the options above.</summary>
+    public bool UseScannerDialog { get; set; }
 }
 
 /// <summary>

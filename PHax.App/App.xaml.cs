@@ -53,6 +53,7 @@ public partial class App : Application
         services.AddSingleton<ServiceClient>();
         services.AddSingleton<AppNotifications>();
         services.AddSingleton<FaxDocumentService>();
+        services.AddSingleton<ScannerService>();
         services.AddSingleton<TransmissionPopupController>();
         services.AddSingleton<ShellViewModel>();
         services.AddSingleton<InboxViewModel>();

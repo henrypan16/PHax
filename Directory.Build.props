@@ -4,7 +4,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
-    <Version>0.2.1</Version>
+    <Version>0.3.0</Version>
     <Authors>Henry Phan</Authors>
     <Company>Phan Software</Company>
     <Product>PHax</Product>

@@ -16,6 +16,8 @@
     <EnableMsixTooling>true</EnableMsixTooling>
     <PublishTrimmed>false</PublishTrimmed>
     <PublishReadyToRun>false</PublishReadyToRun>
+    <!-- The UI is English; skip the ~50 satellite folders NAPS2.Sdk would add. -->
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
   </PropertyGroup>
   <!-- Generated from logo.png by scripts/make-icon.ps1 (run automatically by scripts/build.ps1). -->
   <PropertyGroup Condition="Exists('Assets\PHax.ico')">
@@ -37,6 +39,10 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
     <PackageReference Include="Serilog.Extensions.Logging" />
     <PackageReference Include="Serilog.Sinks.File" />
+    <PackageReference Include="NAPS2.Sdk" />
+    <PackageReference Include="NAPS2.Images.Gdi" />
+    <!-- Copies NAPS2.Worker.exe (x86) for 32-bit TWAIN drivers; the package only does so for win-x64/win-x86. -->
+    <PackageReference Include="NAPS2.Sdk.Worker.Win32" />
   </ItemGroup>
 
   <ItemGroup>

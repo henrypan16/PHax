@@ -142,9 +142,16 @@ public sealed partial class SettingsViewModel(SettingsStore store, ServiceClient
         OnPropertyChanged(nameof(SelectedPort));
     }
 
+    /// <summary>Saves the edited settings, keeping scan choices the Scan dialog may have saved since this page loaded.</summary>
+    private async Task SaveSettingsAsync()
+    {
+        Settings.Scanning = (await store.LoadAsync()).Scanning;
+        await store.SaveAsync(Settings);
+    }
+
     public async Task SaveAsync()
     {
-        await store.SaveAsync(Settings);
+        await SaveSettingsAsync();
         try { StartupRegistration.Apply(Settings.General.StartWithWindows, Settings.General.StartMinimized); }
         catch (Exception ex) when (ex is UnauthorizedAccessException or System.Security.SecurityException) { }
         bool told = await client.TrySendAsync(PipeCommands.ReloadSettings);
@@ -214,7 +221,7 @@ public sealed partial class SettingsViewModel(SettingsStore store, ServiceClient
 
     public async Task<string> BackupNowAsync()
     {
-        await store.SaveAsync(Settings);
+        await SaveSettingsAsync();
         if (!client.IsConnected) return "The PHax service is not running.";
         var r = await client.RequestAsync<BackupRecord>(PipeCommands.RunBackup, null, TimeSpan.FromMinutes(10));
         return r is { Success: true } ? $"Backup written to {r.Path}" : $"Backup failed: {r?.Message}";

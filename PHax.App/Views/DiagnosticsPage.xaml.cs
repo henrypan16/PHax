@@ -102,6 +102,15 @@ public sealed partial class DiagnosticsPage : Page
         foreach (var l in AtLines) sb.AppendLine($"{l.Time} {l.Category} {l.Message}");
         sb.AppendLine().AppendLine("== Protocol events ==");
         foreach (var l in EventLines) sb.AppendLine($"{l.Time} [{l.Category}] {l.Message}");
+        sb.AppendLine().AppendLine("== Scanners ==");
+        sb.AppendLine($"32-bit TWAIN worker: {(ScannerService.HasWin32Worker ? "present" : "not installed")}");
+        try
+        {
+            var scanners = await App.GetService<ScannerService>().GetScannersAsync(refresh: true);
+            if (scanners.Count == 0) sb.AppendLine("No scanners found.");
+            foreach (var scanner in scanners) sb.AppendLine($"{scanner} [{scanner.Key}]");
+        }
+        catch (Exception ex) { sb.AppendLine($"Listing scanners failed: {ex.Message}"); }
         await File.WriteAllTextAsync(path, sb.ToString());
     }
 

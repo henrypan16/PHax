@@ -52,6 +52,13 @@ public sealed partial class ComposeWindow : Window
         foreach (var f in await Pickers.OpenFilesAsync(this, DocumentRasterizer.SupportedExtensions)) await ViewModel.AddFileAsync(f);
     }
 
+    private async void Scan_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new ScanDialog(WinRT.Interop.WindowNative.GetWindowHandle(this)) { XamlRoot = Content.XamlRoot };
+        await dialog.ShowAsync();
+        if (dialog.ResultPath is { } path) await ViewModel.AddFileAsync(path);
+    }
+
     private void Up_Click(object sender, RoutedEventArgs e) => ViewModel.Move(-1);
     private void Down_Click(object sender, RoutedEventArgs e) => ViewModel.Move(1);
     private void Remove_Click(object sender, RoutedEventArgs e) => ViewModel.RemoveSelected();

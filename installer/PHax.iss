@@ -64,6 +64,7 @@ Source: "{#Root}\out\Service\*"; DestDir: "{app}\Service"; Flags: ignoreversion 
 Source: "service-setup.ps1"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#Root}\LICENSE"; DestDir: "{app}"; DestName: "LICENSE.txt"; Flags: ignoreversion
 Source: "{#Root}\NOTICE"; DestDir: "{app}"; DestName: "NOTICE.txt"; Flags: ignoreversion
+Source: "{#Root}\licenses\*"; DestDir: "{app}\licenses"; Flags: ignoreversion
 
 [Dirs]
 ; Shared database, documents and logs: the service (SYSTEM) and every user's app read and write here.

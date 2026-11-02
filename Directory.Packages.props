@@ -12,6 +12,10 @@
     <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.14" />
     <PackageVersion Include="System.IO.Ports" Version="10.0.14" />
     <PackageVersion Include="System.Drawing.Common" Version="10.0.14" />
+    <!-- Scanning (WIA/TWAIN). LGPL-2.1: shipped as separate, replaceable DLLs; see NOTICE. -->
+    <PackageVersion Include="NAPS2.Sdk" Version="1.6.0" />
+    <PackageVersion Include="NAPS2.Images.Gdi" Version="1.6.0" />
+    <PackageVersion Include="NAPS2.Sdk.Worker.Win32" Version="1.6.0" />
     <PackageVersion Include="Serilog.Extensions.Hosting" Version="10.0.0" />
     <PackageVersion Include="Serilog.Extensions.Logging" Version="10.0.0" />
     <PackageVersion Include="Serilog.Sinks.File" Version="7.0.0" />

@@ -6,3 +6,12 @@ Created by Henry Phan under Phan Software.
 Licensed under the Apache License, Version 2.0, subject to the "Commons Clause" License Condition v1.0.
 See the LICENSE file for the full terms. The Commons Clause means the software may not be sold, or offered as a
 paid product or service whose value derives substantially from it, without separate permission from the Licensor.
+
+Third-party components
+----------------------
+NAPS2.Sdk, NAPS2.Images, NAPS2.Images.Gdi, NAPS2.Internals, NAPS2.Escl, NAPS2.Wia, NAPS2.NTwain and
+NAPS2.Sdk.Worker.Win32 (including NAPS2.Worker.exe), version 1.6.0, used for scanning.
+Copyright 2009-2026 NAPS2 Contributors. https://www.naps2.com/sdk
+Licensed under the GNU Lesser General Public License, version 2.1 or later; see licenses\NAPS2.Sdk-LGPL-2.1.txt.
+These libraries are shipped unmodified as separate DLLs in the App folder and may be replaced with compatible
+versions. Source code: https://github.com/cyanfish/naps2 (commit f914a4ec2af090aca4fa55eb3242ec91641482c3).

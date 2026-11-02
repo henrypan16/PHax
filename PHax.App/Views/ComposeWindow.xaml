@@ -38,6 +38,7 @@
                     <TextBlock Text="Attachments" Style="{StaticResource BodyStrongTextBlockStyle}" VerticalAlignment="Center" />
                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4">
                         <Button Click="Add_Click" ToolTipService.ToolTip="Add files"><SymbolIcon Symbol="Attach" /></Button>
+                        <Button Click="Scan_Click" ToolTipService.ToolTip="Scan a document"><FontIcon Glyph="&#xE8FE;" /></Button>
                         <Button Click="Up_Click" ToolTipService.ToolTip="Move up"><SymbolIcon Symbol="Up" /></Button>
                         <Button Click="Down_Click" ToolTipService.ToolTip="Move down"><SymbolIcon Symbol="Download" /></Button>
                         <Button Click="Remove_Click" ToolTipService.ToolTip="Remove"><SymbolIcon Symbol="Delete" /></Button>
@@ -59,7 +60,7 @@
                         </DataTemplate>
                     </ListView.ItemTemplate>
                 </ListView>
-                <TextBlock Text="PDF, TIFF, PNG, JPEG and BMP. Drag files here or use the attach button. Pages are sent in list order."
+                <TextBlock Text="PDF, TIFF, PNG, JPEG and BMP. Drag files here, use the attach button, or scan a document. Pages are sent in list order."
                            TextWrapping="Wrap" Style="{StaticResource CaptionTextBlockStyle}" />
             </StackPanel>
         </ScrollViewer>

@@ -9,7 +9,8 @@ It drives **Fax Class 1 / Class 1.0 (EIA-578 / ITU-T T.31)** modems directly and
 T.30 session negotiation, V.21 HDLC framing, training and speed fallback, and T.4 page coding, written in C#.
 
 - **Desktop app** (WinUI 3): Incoming, Inbox, Drafts, Outbox and Sent; compose with PDF/TIFF/image/Word
-  attachments and cover pages; preview, print, forward, PDF export; progress popup and Windows notifications.
+  attachments and cover pages; scan paper documents from WIA or TWAIN scanners; preview, print, forward, PDF
+  export; progress popup and Windows notifications.
 - **Windows Service**: owns the modem, answers calls, sends the queue with automatic redial, keeps working when
   nobody is signed in, and prints received faxes automatically if you want it to.
 - **Safe delivery accounting**: a fax is only marked *Sent* after the receiving machine confirms every page.
@@ -115,6 +116,9 @@ Licensed under the [Apache License 2.0](LICENSE) with the **Commons Clause** Lic
 modify and redistribute PHax under the Apache 2.0 terms, but you may not sell it, or sell a product or service
 (including hosting or support) whose value derives substantially from it, without permission. Because of the
 Commons Clause, PHax is source-available rather than OSI open source. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
+
+Scanning uses [NAPS2.Sdk](https://www.naps2.com/sdk) (LGPL 2.1 or later), shipped as unmodified separate DLLs; see
+[NOTICE](NOTICE) and [licenses/](licenses/).
 
 ## Disclaimer
 
