@@ -102,13 +102,15 @@ public static class Pickers
 
 public static class FaxActions
 {
-    public static async Task<ImageSource> ToImageAsync(FaxBitmap page)
+    /// <param name="decodePixelWidth">Decode to this width to save memory; 0 = full resolution.</param>
+    public static async Task<ImageSource> ToImageAsync(FaxBitmap page, int decodePixelWidth = 0)
     {
         var png = await Task.Run(() => Bilevel.ToPng(page));
         using var stream = new InMemoryRandomAccessStream();
         await stream.WriteAsync(png.AsBuffer());
         stream.Seek(0);
         var image = new BitmapImage();
+        if (decodePixelWidth > 0) image.DecodePixelWidth = decodePixelWidth;
         await image.SetSourceAsync(stream);
         return image;
     }

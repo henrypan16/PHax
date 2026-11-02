@@ -28,36 +28,44 @@
             <AutoSuggestBox Grid.Column="1" PlaceholderText="Search" QueryIcon="Find" VerticalAlignment="Center"
                             Text="{x:Bind ViewModel.Search, Mode=TwoWay}" />
         </Grid>
-        <ListView Grid.Row="2" ItemsSource="{x:Bind ViewModel.Items}" SelectedItem="{x:Bind ViewModel.Selected, Mode=TwoWay}" SelectionMode="Single">
-            <ListView.ItemTemplate>
-                <DataTemplate x:DataType="vm:OutboundItem">
-                    <Grid Padding="0,8">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <StackPanel Spacing="2">
-                            <TextBlock Text="{x:Bind Title, Mode=OneWay}" Style="{StaticResource BodyStrongTextBlockStyle}" />
-                            <TextBlock Text="{x:Bind Number, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}" />
-                            <TextBlock Text="{x:Bind LiveMessage, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}"
-                                       Visibility="{x:Bind local:Bind.VisibleIfText(LiveMessage), Mode=OneWay}" />
-                            <ProgressBar Value="{x:Bind Progress, Mode=OneWay}" Maximum="100" Width="320" HorizontalAlignment="Left"
-                                         Visibility="{x:Bind local:Bind.Visible(IsActive), Mode=OneWay}" />
-                            <TextBlock Text="{x:Bind ErrorText, Mode=OneWay}" TextWrapping="Wrap" Style="{StaticResource CaptionTextBlockStyle}"
-                                       Foreground="{ThemeResource SystemFillColorCriticalBrush}"
-                                       Visibility="{x:Bind local:Bind.Visible(HasError), Mode=OneWay}" />
-                        </StackPanel>
-                        <StackPanel Grid.Column="1" Spacing="2" HorizontalAlignment="Right" MinWidth="200">
-                            <TextBlock Text="{x:Bind StatusText, Mode=OneWay}" HorizontalAlignment="Right" Style="{StaticResource BodyStrongTextBlockStyle}" />
-                            <TextBlock Text="{x:Bind AttemptsText, Mode=OneWay}" HorizontalAlignment="Right" Style="{StaticResource CaptionTextBlockStyle}" />
-                            <TextBlock Text="{x:Bind NextRetryText, Mode=OneWay}" HorizontalAlignment="Right" Style="{StaticResource CaptionTextBlockStyle}" />
-                            <TextBlock Text="{x:Bind PagesText, Mode=OneWay}" HorizontalAlignment="Right" Style="{StaticResource CaptionTextBlockStyle}" />
-                        </StackPanel>
-                    </Grid>
-                </DataTemplate>
-            </ListView.ItemTemplate>
-        </ListView>
-        <TextBlock Grid.Row="2" Text="The outbox is empty." Visibility="{x:Bind local:Bind.Visible(ViewModel.IsEmpty), Mode=OneWay}"
-                   HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+        <Grid Grid.Row="2" ColumnSpacing="12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="2*" MinWidth="320" />
+                <ColumnDefinition Width="3*" />
+            </Grid.ColumnDefinitions>
+            <ListView ItemsSource="{x:Bind ViewModel.Items}" SelectedItem="{x:Bind ViewModel.Selected, Mode=TwoWay}" SelectionMode="Single"
+                      SelectionChanged="List_SelectionChanged">
+                <ListView.ItemTemplate>
+                    <DataTemplate x:DataType="vm:OutboundItem">
+                        <Grid Padding="0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Spacing="2">
+                                <TextBlock Text="{x:Bind Title, Mode=OneWay}" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                                <TextBlock Text="{x:Bind Number, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}" />
+                                <TextBlock Text="{x:Bind LiveMessage, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}"
+                                           Visibility="{x:Bind local:Bind.VisibleIfText(LiveMessage), Mode=OneWay}" />
+                                <ProgressBar Value="{x:Bind Progress, Mode=OneWay}" Maximum="100" Width="320" HorizontalAlignment="Left"
+                                             Visibility="{x:Bind local:Bind.Visible(IsActive), Mode=OneWay}" />
+                                <TextBlock Text="{x:Bind ErrorText, Mode=OneWay}" TextWrapping="Wrap" Style="{StaticResource CaptionTextBlockStyle}"
+                                           Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                                           Visibility="{x:Bind local:Bind.Visible(HasError), Mode=OneWay}" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Spacing="2" HorizontalAlignment="Right" MinWidth="200">
+                                <TextBlock Text="{x:Bind StatusText, Mode=OneWay}" HorizontalAlignment="Right" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                                <TextBlock Text="{x:Bind AttemptsText, Mode=OneWay}" HorizontalAlignment="Right" Style="{StaticResource CaptionTextBlockStyle}" />
+                                <TextBlock Text="{x:Bind NextRetryText, Mode=OneWay}" HorizontalAlignment="Right" Style="{StaticResource CaptionTextBlockStyle}" />
+                                <TextBlock Text="{x:Bind PagesText, Mode=OneWay}" HorizontalAlignment="Right" Style="{StaticResource CaptionTextBlockStyle}" />
+                            </StackPanel>
+                        </Grid>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+            <TextBlock Text="The outbox is empty." Visibility="{x:Bind local:Bind.Visible(ViewModel.IsEmpty), Mode=OneWay}"
+                       HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            <local:FaxPreviewPane x:Name="Pane" Grid.Column="1" />
+        </Grid>
     </Grid>
 </Page>

@@ -111,14 +111,7 @@ public sealed class FaxDocumentService(IDbContextFactory<FaxDbContext> dbFactory
             if (job.IncludeCoverPage)
             {
                 progress?.Report("Rendering cover page…");
-                pages.Insert(0, CoverPageRenderer.Render(new CoverPageInfo(job.RecipientName, job.FaxNumber,
-                    data.CoverFrom ?? settings.Outgoing.CoverPageFrom, data.CoverFromFax ?? settings.Incoming.LocalStationId,
-                    job.Subject, job.CoverMessage, pages.Count + 1, DateTime.Now)
-                {
-                    ToAddress = data.CoverToAddress ?? "",
-                    FromAddress = data.CoverFromAddress ?? "",
-                    FromPhone = data.CoverFromPhone ?? "",
-                }));
+                pages.Insert(0, RenderCover(data, settings, pages.Count + 1));
             }
             progress?.Report("Encoding fax document…");
             var doc = Path.Combine(jobDir, "fax.tif");
@@ -138,6 +131,38 @@ public sealed class FaxDocumentService(IDbContextFactory<FaxDbContext> dbFactory
         if (queue) await client.TrySendAsync(PipeCommands.JobSubmitted, new JobRef(job.Id));
         return job;
     }
+
+    /// <summary>
+    /// Renders the pages exactly as <see cref="SaveAsync"/> would queue them (cover page first, then every attachment
+    /// in order) without saving anything.
+    /// </summary>
+    public async Task<List<FaxBitmap>> RenderPreviewAsync(ComposeData data, IProgress<string>? progress = null, CancellationToken ct = default)
+    {
+        var settings = await settingsStore.LoadAsync(ct);
+        var rasterizer = new DocumentRasterizer();
+        var pages = new List<FaxBitmap>();
+        foreach (var a in data.Attachments)
+        {
+            progress?.Report($"Converting {a.FileName}…");
+            pages.AddRange(await Task.Run(() => rasterizer.RasterizeAsync(a.Path, ct), ct));
+        }
+        if (data.IncludeCoverPage)
+        {
+            progress?.Report("Rendering cover page…");
+            pages.Insert(0, RenderCover(data, settings, pages.Count + 1));
+        }
+        return pages;
+    }
+
+    private static FaxBitmap RenderCover(ComposeData data, AppSettings settings, int totalPages) =>
+        CoverPageRenderer.Render(new CoverPageInfo(data.RecipientName.Trim(), data.FaxNumber.Trim(),
+            data.CoverFrom ?? settings.Outgoing.CoverPageFrom, data.CoverFromFax ?? settings.Incoming.LocalStationId,
+            data.Subject.Trim(), data.CoverMessage, totalPages, DateTime.Now)
+        {
+            ToAddress = data.CoverToAddress ?? "",
+            FromAddress = data.CoverFromAddress ?? "",
+            FromPhone = data.CoverFromPhone ?? "",
+        });
 
     /// <summary>
     /// Records a fax that could not be prepared (e.g. its document is missing) as a Failed job in the Outbox, so the

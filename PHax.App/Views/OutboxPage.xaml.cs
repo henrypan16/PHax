@@ -14,7 +14,16 @@ public sealed partial class OutboxPage : Page
     public OutboxPage()
     {
         InitializeComponent();
+        Pane.AddShortcutsTo(this);
         Loaded += async (_, _) => await ViewModel.RefreshAsync();
+    }
+
+    private void List_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        var item = ((ListView)sender).SelectedItem as OutboundItem;
+        if (item is null) Pane.Clear();
+        else if (item.Model.DocumentPath is not { } path) Pane.Clear("This fax has no document (it could not be prepared).");
+        else Pane.Show(path, item.Title, FaxPreviewPane.StoredTiff(path));
     }
 
     private async Task Run(string command)

@@ -14,7 +14,18 @@ public sealed partial class InboxPage : Page
     public InboxPage()
     {
         InitializeComponent();
+        Pane.AddShortcutsTo(this);
         Loaded += async (_, _) => await ViewModel.RefreshAsync();
+    }
+
+    private async void List_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        var item = ((ListView)sender).SelectedItem as ReceivedItem;
+        if (item is null) { Pane.Clear(); return; }
+        if (item.Model.TiffPath is not { } path) { Pane.Clear("This fax has no document (the reception did not complete)."); return; }
+        Pane.Show(path, item.Title, FaxPreviewPane.StoredTiff(path));
+        // Shown in the reading pane = read, as in an email client.
+        if (item.IsUnread) await ViewModel.SetReadAsync(item, true);
     }
 
     private async Task<List<FaxBitmap>?> PagesAsync()

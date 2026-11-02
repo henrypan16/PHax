@@ -82,13 +82,21 @@
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
                 <ProgressRing IsActive="{x:Bind ViewModel.IsBusy, Mode=OneWay}" Width="20" Height="20" />
                 <TextBlock Text="{x:Bind ViewModel.Status, Mode=OneWay}" TextWrapping="Wrap" VerticalAlignment="Center" />
             </StackPanel>
-            <Button Grid.Column="1" Content="Save as Draft" Click="SaveDraft_Click" IsEnabled="{x:Bind local:Bind.Not(ViewModel.IsBusy), Mode=OneWay}" />
-            <Button Grid.Column="2" Style="{StaticResource AccentButtonStyle}" Click="Send_Click" IsEnabled="{x:Bind local:Bind.Not(ViewModel.IsBusy), Mode=OneWay}">
+            <Button Grid.Column="1" Click="Preview_Click" IsEnabled="{x:Bind local:Bind.Not(ViewModel.IsBusy), Mode=OneWay}"
+                    ToolTipService.ToolTip="Show every page as it will be faxed, including the cover page">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <SymbolIcon Symbol="Preview" />
+                    <TextBlock Text="Preview" />
+                </StackPanel>
+            </Button>
+            <Button Grid.Column="2" Content="Save as Draft" Click="SaveDraft_Click" IsEnabled="{x:Bind local:Bind.Not(ViewModel.IsBusy), Mode=OneWay}" />
+            <Button Grid.Column="3" Style="{StaticResource AccentButtonStyle}" Click="Send_Click" IsEnabled="{x:Bind local:Bind.Not(ViewModel.IsBusy), Mode=OneWay}">
                 <StackPanel Orientation="Horizontal" Spacing="8">
                     <SymbolIcon Symbol="Send" />
                     <TextBlock Text="Send Fax" />

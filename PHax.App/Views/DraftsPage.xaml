@@ -18,28 +18,35 @@
             <AppBarButton Icon="Send" Label="Send" Click="Send_Click" />
             <AppBarButton Icon="Delete" Label="Delete" Click="Delete_Click" />
         </CommandBar>
-        <ListView Grid.Row="2" ItemsSource="{x:Bind ViewModel.Items}" SelectedItem="{x:Bind ViewModel.Selected, Mode=TwoWay}"
-                  IsDoubleTapEnabled="True" DoubleTapped="List_DoubleTapped">
-            <ListView.ItemTemplate>
-                <DataTemplate x:DataType="vm:OutboundItem">
-                    <Grid Padding="0,8">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <StackPanel>
-                            <TextBlock Text="{x:Bind Title, Mode=OneWay}" Style="{StaticResource BodyStrongTextBlockStyle}" />
-                            <TextBlock Text="{x:Bind Subject, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}" />
-                        </StackPanel>
-                        <StackPanel Grid.Column="1" HorizontalAlignment="Right">
-                            <TextBlock Text="{x:Bind CreatedText, Mode=OneWay}" HorizontalAlignment="Right" Style="{StaticResource CaptionTextBlockStyle}" />
-                            <TextBlock Text="{x:Bind PagesText, Mode=OneWay}" HorizontalAlignment="Right" Style="{StaticResource CaptionTextBlockStyle}" />
-                        </StackPanel>
-                    </Grid>
-                </DataTemplate>
-            </ListView.ItemTemplate>
-        </ListView>
-        <TextBlock Grid.Row="2" Text="No drafts." Visibility="{x:Bind local:Bind.Visible(ViewModel.IsEmpty), Mode=OneWay}"
-                   HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+        <Grid Grid.Row="2" ColumnSpacing="12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="2*" MinWidth="320" />
+                <ColumnDefinition Width="3*" />
+            </Grid.ColumnDefinitions>
+            <ListView ItemsSource="{x:Bind ViewModel.Items}" SelectedItem="{x:Bind ViewModel.Selected, Mode=TwoWay}"
+                      IsDoubleTapEnabled="True" DoubleTapped="List_DoubleTapped" SelectionChanged="List_SelectionChanged">
+                <ListView.ItemTemplate>
+                    <DataTemplate x:DataType="vm:OutboundItem">
+                        <Grid Padding="0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Text="{x:Bind Title, Mode=OneWay}" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                                <TextBlock Text="{x:Bind Subject, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" HorizontalAlignment="Right">
+                                <TextBlock Text="{x:Bind CreatedText, Mode=OneWay}" HorizontalAlignment="Right" Style="{StaticResource CaptionTextBlockStyle}" />
+                                <TextBlock Text="{x:Bind PagesText, Mode=OneWay}" HorizontalAlignment="Right" Style="{StaticResource CaptionTextBlockStyle}" />
+                            </StackPanel>
+                        </Grid>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+            <TextBlock Text="No drafts." Visibility="{x:Bind local:Bind.Visible(ViewModel.IsEmpty), Mode=OneWay}"
+                       HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            <local:FaxPreviewPane x:Name="Pane" Grid.Column="1" EmptyText="Select a draft to preview it as it will be faxed." />
+        </Grid>
     </Grid>
 </Page>

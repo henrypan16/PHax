@@ -102,6 +102,11 @@ public sealed partial class ComposeWindow : Window
         }
     }
 
+    private async void Preview_Click(object sender, RoutedEventArgs e)
+    {
+        if (await ViewModel.RenderPreviewAsync() is { Count: > 0 } pages) PreviewWindow.Open(ViewModel.PreviewTitle, pages);
+    }
+
     private async void SaveDraft_Click(object sender, RoutedEventArgs e)
     {
         if (await ViewModel.SaveAsync(send: false)) Close();

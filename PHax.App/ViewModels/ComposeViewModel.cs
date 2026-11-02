@@ -97,23 +97,51 @@ public sealed partial class ComposeViewModel(FaxDocumentService documents, IDbCo
     public string TotalPagesText =>
         $"{Attachments.Sum(a => a.Source.PageCount) + (IncludeCoverPage ? 1 : 0)} page(s) total";
 
+    public string PreviewTitle =>
+        !string.IsNullOrWhiteSpace(RecipientName) ? $"Fax to {RecipientName.Trim()}"
+        : !string.IsNullOrWhiteSpace(FaxNumber) ? $"Fax to {FaxNumber.Trim()}"
+        : "New fax";
+
+    /// <summary>Renders the whole fax as it will be sent; null (with <see cref="Status"/> set) when there is nothing to show.</summary>
+    public async Task<List<FaxBitmap>?> RenderPreviewAsync()
+    {
+        if (Attachments.Count == 0 && !IncludeCoverPage) { Status = "Add an attachment or a cover page."; return null; }
+        IsBusy = true;
+        try
+        {
+            var pages = await documents.RenderPreviewAsync(ToData(), new Progress<string>(m => Status = m));
+            Status = $"{pages.Count} page(s) will be sent.";
+            return pages;
+        }
+        catch (Exception ex)
+        {
+            Status = $"Preview failed: {ex.Message}";
+            return null;
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private ComposeData ToData() => new()
+    {
+        DraftId = _draftId,
+        RecipientName = RecipientName,
+        FaxNumber = FaxNumber,
+        Subject = Subject,
+        IncludeCoverPage = IncludeCoverPage,
+        CoverMessage = CoverMessage,
+        Attachments = Attachments.Select(a => a.Source).ToList(),
+    };
+
     public async Task<bool> SaveAsync(bool send)
     {
         if (send && !DialString.IsValid(FaxNumber)) { Status = "Enter a valid fax number."; return false; }
         IsBusy = true;
         try
         {
-            var data = new ComposeData
-            {
-                DraftId = _draftId,
-                RecipientName = RecipientName,
-                FaxNumber = FaxNumber,
-                Subject = Subject,
-                IncludeCoverPage = IncludeCoverPage,
-                CoverMessage = CoverMessage,
-                Attachments = Attachments.Select(a => a.Source).ToList(),
-            };
-            var job = await documents.SaveAsync(data, send, new Progress<string>(m => Status = m));
+            var job = await documents.SaveAsync(ToData(), send, new Progress<string>(m => Status = m));
             _draftId = job.Status == OutboundStatus.Draft ? job.Id : null;
             Status = send ? $"Queued: {job.PageCount} page(s) to {job.FaxNumber}." : "Draft saved.";
             App.GetService<ShellViewModel>().RaiseOutboundChanged();

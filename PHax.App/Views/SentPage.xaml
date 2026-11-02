@@ -28,32 +28,39 @@
             <AutoSuggestBox Grid.Column="1" PlaceholderText="Search" QueryIcon="Find" VerticalAlignment="Center"
                             Text="{x:Bind ViewModel.Search, Mode=TwoWay}" />
         </Grid>
-        <ListView Grid.Row="2" ItemsSource="{x:Bind ViewModel.Items}" SelectedItem="{x:Bind ViewModel.Selected, Mode=TwoWay}"
-                  IsDoubleTapEnabled="True" DoubleTapped="List_DoubleTapped">
-            <ListView.ItemTemplate>
-                <DataTemplate x:DataType="vm:OutboundItem">
-                    <Grid Padding="0,8">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <StackPanel Spacing="2">
-                            <TextBlock Text="{x:Bind Title, Mode=OneWay}" Style="{StaticResource BodyStrongTextBlockStyle}" />
-                            <TextBlock Text="{x:Bind Number, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}" />
-                            <TextBlock Text="{x:Bind ConfirmationText, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="Wrap"
-                                       Foreground="{ThemeResource SystemFillColorSuccessBrush}" />
-                        </StackPanel>
-                        <StackPanel Grid.Column="1" Spacing="2" HorizontalAlignment="Right" MinWidth="180">
-                            <TextBlock Text="{x:Bind SentText, Mode=OneWay}" HorizontalAlignment="Right" />
-                            <TextBlock Text="{x:Bind PagesText, Mode=OneWay}" HorizontalAlignment="Right" Style="{StaticResource CaptionTextBlockStyle}" />
-                            <TextBlock Text="{x:Bind DurationText, Mode=OneWay}" HorizontalAlignment="Right" Style="{StaticResource CaptionTextBlockStyle}" />
-                            <TextBlock Text="{x:Bind StatusText, Mode=OneWay}" HorizontalAlignment="Right" Style="{StaticResource CaptionTextBlockStyle}" />
-                        </StackPanel>
-                    </Grid>
-                </DataTemplate>
-            </ListView.ItemTemplate>
-        </ListView>
-        <TextBlock Grid.Row="2" Text="No sent faxes." Visibility="{x:Bind local:Bind.Visible(ViewModel.IsEmpty), Mode=OneWay}"
-                   HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+        <Grid Grid.Row="2" ColumnSpacing="12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="2*" MinWidth="320" />
+                <ColumnDefinition Width="3*" />
+            </Grid.ColumnDefinitions>
+            <ListView ItemsSource="{x:Bind ViewModel.Items}" SelectedItem="{x:Bind ViewModel.Selected, Mode=TwoWay}"
+                      IsDoubleTapEnabled="True" DoubleTapped="List_DoubleTapped" SelectionChanged="List_SelectionChanged">
+                <ListView.ItemTemplate>
+                    <DataTemplate x:DataType="vm:OutboundItem">
+                        <Grid Padding="0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Spacing="2">
+                                <TextBlock Text="{x:Bind Title, Mode=OneWay}" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                                <TextBlock Text="{x:Bind Number, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}" />
+                                <TextBlock Text="{x:Bind ConfirmationText, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="Wrap"
+                                           Foreground="{ThemeResource SystemFillColorSuccessBrush}" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Spacing="2" HorizontalAlignment="Right" MinWidth="180">
+                                <TextBlock Text="{x:Bind SentText, Mode=OneWay}" HorizontalAlignment="Right" />
+                                <TextBlock Text="{x:Bind PagesText, Mode=OneWay}" HorizontalAlignment="Right" Style="{StaticResource CaptionTextBlockStyle}" />
+                                <TextBlock Text="{x:Bind DurationText, Mode=OneWay}" HorizontalAlignment="Right" Style="{StaticResource CaptionTextBlockStyle}" />
+                                <TextBlock Text="{x:Bind StatusText, Mode=OneWay}" HorizontalAlignment="Right" Style="{StaticResource CaptionTextBlockStyle}" />
+                            </StackPanel>
+                        </Grid>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+            <TextBlock Text="No sent faxes." Visibility="{x:Bind local:Bind.Visible(ViewModel.IsEmpty), Mode=OneWay}"
+                       HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            <local:FaxPreviewPane x:Name="Pane" Grid.Column="1" />
+        </Grid>
     </Grid>
 </Page>
