@@ -35,6 +35,7 @@ public sealed partial class OutboundItem : ObservableObject
     public string SentText => Model.SentUtc?.ToLocalTime().ToString("g") ?? "";
     public string DurationText => Model.DurationSeconds is { } d ? TimeSpan.FromSeconds(d).ToString(@"m\:ss") : "";
     public string ConfirmationText => Model.ConfirmationDetail ?? "";
+    public string SubmittedByText => string.IsNullOrEmpty(Model.SubmittedBy) ? "" : $"From {Model.SubmittedBy}";
 
     public void Update(OutboundFax model)
     {

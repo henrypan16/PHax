@@ -4,8 +4,10 @@ using System.Security.Principal;
 using System.Text;
 using PHax.Core.Ipc;
 using PHax.Core.Models;
+using PHax.Core.Remote;
 using PHax.Data;
 using PHax.Modem.Serial;
+using PHax.Service.Remote;
 using Microsoft.EntityFrameworkCore;
 
 namespace PHax.Service;
@@ -139,7 +141,9 @@ public sealed class CommandHandler(
     BackupService backup,
     SettingsStore settingsStore,
     IDbContextFactory<FaxDbContext> dbFactory,
-    EventBus bus)
+    EventBus bus,
+    PairingService pairing,
+    NetworkServerState network)
 {
     public async Task<System.Text.Json.JsonElement?> HandleAsync(string type, System.Text.Json.JsonElement? payload, CancellationToken ct)
     {
@@ -199,6 +203,7 @@ public sealed class CommandHandler(
                 return null;
             case PipeCommands.ReloadSettings:
                 supervisor.Enqueue(new ReloadRequest());
+                network.RequestReload();
                 return null;
             case PipeCommands.ResetModem:
                 supervisor.Enqueue(new ResetRequest());
@@ -224,6 +229,22 @@ public sealed class CommandHandler(
             case PipeCommands.RestoreBackup:
                 var restore = PipeProtocol.FromElement<RestoreRequest>(payload) ?? throw new ArgumentException("Missing backup path.");
                 await backup.RestoreAsync(restore.BackupPath, ct);
+                return null;
+            case PipeCommands.CreatePairingCode:
+            {
+                // Settings saves and asks for a code in one click, so give the listener a moment to come up.
+                for (int i = 0; i < 50 && !network.Listening && network.Error is null; i++) await Task.Delay(100, ct);
+                if (!network.Listening) throw new InvalidOperationException(network.Error ?? "Turn on \"Allow other PCs to connect\" and save first.");
+                var (code, expires) = pairing.CreateCode();
+                return PipeProtocol.ToElement(new PairingCodeDto(code, expires, network.Port, LocalNetwork.Addresses()));
+            }
+            case PipeCommands.ListClients:
+                return PipeProtocol.ToElement(await pairing.ListAsync(ct));
+            case PipeCommands.RemoveClient:
+                await pairing.RemoveAsync((PipeProtocol.FromElement<ClientRef>(payload) ?? throw new ArgumentException("Missing client id.")).ClientId, ct);
+                return null;
+            case PipeCommands.InboxChanged:
+                bus.Publish(PipeEvents.InboxChanged, new { });
                 return null;
             case "simulateIncoming":
                 supervisor.Enqueue(new SimulateIncomingRequest());

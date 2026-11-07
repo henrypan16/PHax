@@ -20,10 +20,9 @@
         <StackPanel Grid.Row="0">
             <InfoBar IsOpen="{x:Bind Shell.IsSimulated, Mode=OneWay}" Severity="Error" IsClosable="False"
                      Title="SIMULATION MODE"
-                     Message="The built-in simulator is active. No fax is sent to or received from a telephone line. Turn it off in Settings &gt; Modem." />
+                     Message="The built-in simulator is active. No fax is sent to or received from a telephone line. Turn it off in Settings &gt; Modem on the PC with the modem." />
             <InfoBar IsOpen="{x:Bind Shell.ServiceMissing, Mode=OneWay}" Severity="Warning" IsClosable="False"
-                     Title="PHax service not running"
-                     Message="Faxes cannot be sent or received until the PHax Windows Service is running. Drafts can still be edited." />
+                     Title="{x:Bind Shell.ConnectionTitle}" Message="{x:Bind Shell.ConnectionMessage, Mode=OneWay}" />
             <InfoBar IsOpen="{x:Bind Shell.ModemProblem, Mode=OneWay}" Severity="Warning" IsClosable="False"
                      Title="Modem" Message="{x:Bind Shell.ModemProblemText, Mode=OneWay}" />
             <InfoBar x:Name="StartupError" Severity="Error" IsOpen="False" Title="Startup error" />

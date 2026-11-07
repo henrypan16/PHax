@@ -22,8 +22,8 @@ public sealed partial class OutboxPage : Page
     {
         var item = ((ListView)sender).SelectedItem as OutboundItem;
         if (item is null) Pane.Clear();
-        else if (item.Model.DocumentPath is not { } path) Pane.Clear("This fax has no document (it could not be prepared).");
-        else Pane.Show(path, item.Title, FaxPreviewPane.StoredTiff(path));
+        else if (item.Model.DocumentPath is null) Pane.Clear("This fax has no document (it could not be prepared).");
+        else Pane.ShowFax(item.Title, item.Model);
     }
 
     private async Task Run(string command)
@@ -55,8 +55,8 @@ public sealed partial class OutboxPage : Page
 
     private async void Preview_Click(object sender, RoutedEventArgs e)
     {
-        if (ViewModel.Selected?.Model.DocumentPath is not { } path) return;
-        try { PreviewWindow.Open(ViewModel.Selected.Title, App.GetService<FaxDocumentService>().LoadPages(path)); }
+        if (ViewModel.Selected is not { Model.DocumentPath: not null } item) return;
+        try { PreviewWindow.Open(item.Title, await App.GetService<IFaxData>().LoadOutboundPagesAsync(item.Model)); }
         catch (Exception ex) { await Dialogs.MessageAsync(XamlRoot, "Preview", ex.Message); }
     }
 

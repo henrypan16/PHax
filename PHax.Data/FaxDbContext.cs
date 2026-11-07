@@ -16,6 +16,7 @@ public sealed class FaxDbContext(DbContextOptions<FaxDbContext> options) : DbCon
     public DbSet<AppSettingRecord> Settings => Set<AppSettingRecord>();
     public DbSet<NotificationRecord> Notifications => Set<NotificationRecord>();
     public DbSet<BackupRecord> Backups => Set<BackupRecord>();
+    public DbSet<PairedClient> PairedClients => Set<PairedClient>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -38,6 +39,11 @@ public sealed class FaxDbContext(DbContextOptions<FaxDbContext> options) : DbCon
         b.Entity<AppSettingRecord>().HasKey(x => x.Key);
         b.Entity<NotificationRecord>().HasIndex(x => x.CreatedUtc);
         b.Entity<BackupRecord>().HasIndex(x => x.CreatedUtc);
+        b.Entity<PairedClient>(e =>
+        {
+            e.HasIndex(x => x.TokenHash).IsUnique();
+            e.Property(x => x.Name).HasMaxLength(100);
+        });
     }
 
     public static string ConnectionString(string databasePath) => new SqliteConnectionStringBuilder

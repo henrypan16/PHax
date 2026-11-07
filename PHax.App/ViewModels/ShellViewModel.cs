@@ -2,23 +2,24 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using PHax.App.Services;
 using PHax.Core.Ipc;
 using PHax.Core.Models;
+using PHax.Core.Remote;
 using PHax.Data;
-using Microsoft.EntityFrameworkCore;
 
 namespace PHax.App.ViewModels;
 
 /// <summary>Service connection, modem status and app-wide change notifications.</summary>
 public sealed partial class ShellViewModel : ObservableObject
 {
-    private readonly ServiceClient _client;
+    private readonly IServiceConnection _client;
     private readonly AppNotifications _notifications;
     private readonly SettingsStore _settings;
-    private readonly IDbContextFactory<FaxDbContext> _db;
+    private readonly IFaxData _data;
 
     [ObservableProperty] public partial bool ServiceConnected { get; set; }
     [ObservableProperty] public partial bool ServiceMissing { get; set; } = true;
     [ObservableProperty] public partial bool IsSimulated { get; set; }
-    [ObservableProperty] public partial string ModemText { get; set; } = "Connecting to the PHax service…";
+    [ObservableProperty] public partial string ModemText { get; set; } = "Connecting…";
+    [ObservableProperty] public partial string ConnectionMessage { get; set; } = "";
     [ObservableProperty] public partial bool ModemProblem { get; set; }
     [ObservableProperty] public partial string ModemProblemText { get; set; } = "";
     [ObservableProperty] public partial int UnreadCount { get; set; }
@@ -29,12 +30,19 @@ public sealed partial class ShellViewModel : ObservableObject
     public event Action<JobProgressDto>? JobProgress;
     public event Action<DiagnosticEntryDto>? ProtocolEvent;
 
-    public ShellViewModel(ServiceClient client, AppNotifications notifications, SettingsStore settings, IDbContextFactory<FaxDbContext> db)
+    /// <summary>This PC uses another PC's modem. Decided at startup; changing it restarts the app.</summary>
+    public bool IsClient { get; }
+    public string ConnectionTitle => IsClient ? "Not connected to the fax server" : "PHax service not running";
+
+    public ShellViewModel(IServiceConnection client, AppNotifications notifications, SettingsStore settings, IFaxData data, NetworkConfig network)
     {
         _client = client;
         _notifications = notifications;
         _settings = settings;
-        _db = db;
+        _data = data;
+        IsClient = network.Mode == NetworkMode.Client;
+        ConnectionMessage = IsClient ? client.UnavailableMessage
+            : "Faxes cannot be sent or received until the PHax Windows Service is running. Drafts can still be edited.";
         client.ConnectionChanged += connected => UiThread.Post(async () =>
         {
             ServiceConnected = connected;
@@ -42,11 +50,14 @@ public sealed partial class ShellViewModel : ObservableObject
             if (connected)
             {
                 try { Apply(await _client.RequestAsync<ServiceStatusDto>(PipeCommands.GetStatus)); } catch (Exception) { }
+                // Anything may have changed while this PC was away from the server.
+                if (IsClient) { OutboundChanged?.Invoke(); InboundChanged?.Invoke(); }
             }
             else
             {
-                ModemText = "PHax service not running";
+                ModemText = IsClient ? "Not connected to the fax server" : "PHax service not running";
                 IsSimulated = false;
+                if (IsClient) ConnectionMessage = client.UnavailableMessage;
             }
         });
         client.EventReceived += env => UiThread.Post(() => OnEvent(env));
@@ -65,7 +76,7 @@ public sealed partial class ShellViewModel : ObservableObject
             case PipeEvents.JobProgress when PipeProtocol.FromElement<JobProgressDto>(env.Payload) is { } p:
                 JobProgress?.Invoke(p);
                 break;
-            case PipeEvents.FaxReceived:
+            case PipeEvents.FaxReceived or PipeEvents.InboxChanged:
                 InboundChanged?.Invoke();
                 await RefreshUnreadAsync();
                 break;
@@ -74,10 +85,21 @@ public sealed partial class ShellViewModel : ObservableObject
                 break;
             case PipeEvents.Notification when PipeProtocol.FromElement<NotificationDto>(env.Payload) is { } n:
                 var s = await _settings.LoadAsync();
-                _notifications.Show(n.Title, n.Message, s.Notifications.PlaySound);
+                // The service applied the server's choices; each client also has its own.
+                if (!IsClient || Wanted(n.Kind, s.Notifications)) _notifications.Show(n.Title, n.Message, s.Notifications.PlaySound);
                 break;
         }
     }
+
+    private static bool Wanted(NotificationKind kind, NotificationSettings n) => kind switch
+    {
+        NotificationKind.FaxReceived => n.OnReceived,
+        NotificationKind.FaxSent => n.OnSent,
+        NotificationKind.FaxFailed => n.OnFailed,
+        NotificationKind.RetryScheduled => n.OnRetryScheduled,
+        NotificationKind.ModemDisconnected => n.OnModemDisconnected,
+        _ => true,
+    };
 
     private void Apply(ServiceStatusDto? status)
     {
@@ -105,8 +127,7 @@ public sealed partial class ShellViewModel : ObservableObject
     {
         try
         {
-            await using var db = await _db.CreateDbContextAsync();
-            UnreadCount = await db.ReceivedFaxes.CountAsync(r => r.Status == ReceivedStatus.Complete && !r.IsRead);
+            UnreadCount = await _data.CountUnreadAsync();
         }
         catch (Exception ex)
         {

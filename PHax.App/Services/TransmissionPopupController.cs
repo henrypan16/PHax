@@ -3,8 +3,8 @@ using PHax.App.ViewModels;
 using PHax.App.Views;
 using PHax.Core.Ipc;
 using PHax.Core.Models;
+using PHax.Core.Remote;
 using PHax.Data;
-using Microsoft.EntityFrameworkCore;
 
 namespace PHax.App.Services;
 
@@ -12,7 +12,7 @@ namespace PHax.App.Services;
 /// Opens the transmission popup when the service starts sending or receiving, keeps it updated from status and
 /// job-progress events, shows the outcome briefly and closes it.
 /// </summary>
-public sealed class TransmissionPopupController(ShellViewModel shell, SettingsStore settingsStore, IDbContextFactory<FaxDbContext> dbFactory)
+public sealed class TransmissionPopupController(ShellViewModel shell, SettingsStore settingsStore, IFaxData data, NetworkConfig network)
 {
     private TransmissionPopup? _popup;
     private bool _active, _receiving, _dismissed, _enabled = true;
@@ -42,9 +42,12 @@ public sealed class TransmissionPopupController(ShellViewModel shell, SettingsSt
             _jobId = status.ActiveJobId;
             _startedUtc = DateTime.UtcNow;
             _enabled = (await settingsStore.LoadAsync()).Notifications.ShowProgressPopup;
+            OutboundFax? job = _receiving ? null : await FindJobAsync(status.ActiveJobId);
+            // The server sends for every PC; a client only cares about its own faxes, and cannot see the others.
+            if (!_receiving && job is null && network.Mode == NetworkMode.Client) _enabled = false;
             _title = _receiving
                 ? $"Receiving fax{From(status.Call)}"
-                : $"Sending fax{await RecipientAsync(status.ActiveJobId)}";
+                : $"Sending fax{(job is null ? "" : $" to {(string.IsNullOrWhiteSpace(job.RecipientName) ? job.FaxNumber : job.RecipientName)}")}";
             Show();
         }
         else if (!active && _active)
@@ -101,17 +104,16 @@ public sealed class TransmissionPopupController(ShellViewModel shell, SettingsSt
         bool ok;
         try
         {
-            await using var db = await dbFactory.CreateDbContextAsync();
             if (_receiving)
             {
-                var fax = await db.ReceivedFaxes.AsNoTracking().OrderByDescending(r => r.ReceivedUtc).FirstOrDefaultAsync();
+                var fax = await data.GetLatestReceivedAsync();
                 ok = fax?.Status == ReceivedStatus.Complete;
                 title = ok ? "Fax received" : "Fax reception incomplete";
                 detail = fax is null ? "" : ok ? $"{fax.PageCount} page(s) from {fax.RemoteId ?? fax.CallerId ?? "unknown sender"}" : fax.ErrorMessage ?? "";
             }
             else
             {
-                var job = _jobId is { } id ? await db.OutboundFaxes.AsNoTracking().FirstOrDefaultAsync(f => f.Id == id) : null;
+                var job = await FindJobAsync(_jobId);
                 ok = job?.Status == OutboundStatus.Sent;
                 title = job?.Status switch
                 {
@@ -133,20 +135,11 @@ public sealed class TransmissionPopupController(ShellViewModel shell, SettingsSt
         _popup?.Finish(title, detail, ok, ok ? TimeSpan.FromSeconds(4) : TimeSpan.FromSeconds(8));
     }
 
-    private async Task<string> RecipientAsync(Guid? jobId)
+    private async Task<OutboundFax?> FindJobAsync(Guid? jobId)
     {
-        if (jobId is null) return "";
-        try
-        {
-            await using var db = await dbFactory.CreateDbContextAsync();
-            var job = await db.OutboundFaxes.AsNoTracking().FirstOrDefaultAsync(f => f.Id == jobId);
-            if (job is null) return "";
-            return $" to {(string.IsNullOrWhiteSpace(job.RecipientName) ? job.FaxNumber : job.RecipientName)}";
-        }
-        catch (Exception)
-        {
-            return "";
-        }
+        if (jobId is not { } id) return null;
+        try { return await data.GetOutboundAsync(id); }
+        catch (Exception ex) when (ex is FaxServerException or IOException or InvalidOperationException) { return null; }
     }
 
     private static string From(CallInfoDto? call) =>

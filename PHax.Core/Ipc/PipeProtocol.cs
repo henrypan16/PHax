@@ -58,6 +58,14 @@ public static class PipeCommands
     public const string RunBackup = "runBackup";
     /// <summary>Payload: <see cref="RestoreRequest"/>.</summary>
     public const string RestoreBackup = "restoreBackup";
+    /// <summary>Returns a <see cref="Remote.PairingCodeDto"/>; a new code replaces any earlier one.</summary>
+    public const string CreatePairingCode = "createPairingCode";
+    /// <summary>Returns the <see cref="Remote.PairedClientDto"/> list.</summary>
+    public const string ListClients = "listClients";
+    /// <summary>Payload: <see cref="ClientRef"/>.</summary>
+    public const string RemoveClient = "removeClient";
+    /// <summary>The app changed the Inbox directly; connected clients are told to refresh.</summary>
+    public const string InboxChanged = "inboxChanged";
 }
 
 public static class PipeEvents
@@ -70,9 +78,13 @@ public static class PipeEvents
     public const string FaxReceived = "faxReceived";
     public const string Notification = "notification";
     public const string ProtocolEvent = "protocolEvent";
+    /// <summary>Something other than a new fax changed in the shared Inbox (read state, name, deletion).</summary>
+    public const string InboxChanged = "inboxChanged";
 }
 
 public sealed record JobRef(Guid JobId);
+
+public sealed record ClientRef(Guid ClientId);
 
 public sealed record RestoreRequest(string BackupPath);
 

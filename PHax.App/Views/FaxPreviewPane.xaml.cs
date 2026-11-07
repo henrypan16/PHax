@@ -114,9 +114,13 @@ public sealed partial class FaxPreviewPane : UserControl
 
     public void Clear(string? message = null) => Show(null, "", null, message);
 
-    /// <summary>A loader for a fax TIFF stored under the storage root (Inbox, Outbox and Sent documents).</summary>
-    public static Func<CancellationToken, Task<IReadOnlyList<FaxBitmap>>> StoredTiff(string storedPath) =>
-        ct => Task.Run<IReadOnlyList<FaxBitmap>>(() => App.GetService<FaxDocumentService>().LoadPages(storedPath), ct);
+    /// <summary>Shows an outgoing fax, from this PC or from the server.</summary>
+    public void ShowFax(string title, OutboundFax fax) =>
+        Show(fax.Id.ToString(), title, ct => App.GetService<IFaxData>().LoadOutboundPagesAsync(fax, ct));
+
+    /// <summary>Shows a received fax, from this PC or from the server.</summary>
+    public void ShowFax(string title, ReceivedFax fax) =>
+        Show(fax.Id.ToString(), title, ct => App.GetService<IFaxData>().LoadReceivedPagesAsync(fax, ct));
 
     /// <summary>Adds the zoom shortcuts to <paramref name="scope"/> (the page or window hosting this pane).</summary>
     public void AddShortcutsTo(UIElement scope)

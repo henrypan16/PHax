@@ -2,6 +2,12 @@
 ; /DAppVersion=x.y.z. Produces out\installer\PHax-Setup-<version>.exe, or PHax-<Edition>-Setup-<version>.exe when
 ; /DEdition=<Name> is passed (the integration DLL is already in out\App). Both editions share the AppId, so
 ; installing one over the other switches edition in place.
+;
+; Network role: new installs get a page to choose it. Upgrades keep the existing choice (change it in Settings > Network).
+; Unattended installs can set it on the command line:
+;   /NETWORKMODE=server   this PC has the modem, nothing listens on the network (the default)
+;   /NETWORKMODE=shared   this PC has the modem and other PCs may connect; /PORT=n to change the port
+;   /NETWORKMODE=client   uses another PC's modem; /SERVER=name-or-ip and /PAIRCODE=code from Add a PC on the server
 
 #ifndef AppVersion
   #define AppVersion "0.1.0"
@@ -77,7 +83,7 @@ Name: "{autodesktop}\PHax"; Filename: "{app}\App\PHax.exe"; WorkingDir: "{app}\A
 Name: "{commonstartup}\PHax"; Filename: "{app}\App\PHax.exe"; Parameters: "--minimized"; WorkingDir: "{app}\App"; AppUserModelID: "PHax.App"; Tasks: startup
 
 [Run]
-Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\service-setup.ps1"" -Action install -InstallDir ""{app}"""; StatusMsg: "Installing and starting the PHax service..."; Flags: runhidden waituntilterminated
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\service-setup.ps1"" -Action install -InstallDir ""{app}"""; StatusMsg: "Installing and starting the PHax service..."; Flags: runhidden waituntilterminated; BeforeInstall: ApplyNetworkRole; AfterInstall: PairWithServer
 Filename: "{app}\App\PHax.exe"; Description: "Open PHax now"; Flags: nowait postinstall skipifsilent runasoriginaluser
 
 [UninstallRun]
@@ -85,6 +91,121 @@ Filename: "{sys}\taskkill.exe"; Parameters: "/F /IM PHax.exe"; Flags: runhidden;
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\service-setup.ps1"" -Action remove"; Flags: runhidden waituntilterminated; RunOnceId: "RemoveService"
 
 [Code]
+var
+  RolePage: TInputOptionWizardPage;
+  ClientPage: TInputQueryWizardPage;
+
+function NetworkConfigPath(): String;
+begin
+  Result := ExpandConstant('{commonappdata}\PHax\network.json');
+end;
+
+{ What to apply: "server", "shared" or "client", or empty to leave an existing configuration alone. }
+function ChosenRole(): String;
+begin
+  Result := Lowercase(ExpandConstant('{param:NETWORKMODE|}'));
+  if Result <> '' then Exit;
+  if FileExists(NetworkConfigPath()) then Exit;
+  case RolePage.SelectedValueIndex of
+    0: Result := 'server';
+    1: Result := 'shared';
+    2: Result := 'client';
+  end;
+end;
+
+{ Quotes would end the command-line argument early; neither value can legitimately contain one. }
+function Clean(const Value: String): String;
+begin
+  Result := Trim(Value);
+  StringChangeEx(Result, '"', '', True);
+end;
+
+function ServerAddressValue(): String;
+begin
+  Result := ExpandConstant('{param:SERVER|}');
+  if Result = '' then Result := ClientPage.Values[0];
+  Result := Clean(Result);
+end;
+
+function PairingCodeValue(): String;
+begin
+  Result := ExpandConstant('{param:PAIRCODE|}');
+  if Result = '' then Result := ClientPage.Values[1];
+  Result := Clean(Result);
+end;
+
+procedure InitializeWizard();
+begin
+  RolePage := CreateInputOptionPage(wpSelectTasks, 'Network', 'How will this PC send and receive faxes?',
+    'You can change this later in PHax under Settings > Network.', True, False);
+  RolePage.Add('This PC has the fax modem and is the only PC using it');
+  RolePage.Add('This PC has the fax modem, and other PCs on the local network will use it');
+  RolePage.Add('This PC will use the fax modem on another PC running PHax');
+  RolePage.SelectedValueIndex := 0;
+
+  ClientPage := CreateInputQueryPage(RolePage.ID, 'Fax server', 'Which PC has the fax modem?',
+    'On that PC, open PHax, go to Settings > Network and click Add a PC. The code can also be entered later in Settings > Network.');
+  ClientPage.Add('Server address (computer name or IP address):', False);
+  ClientPage.Add('Pairing code (optional):', False);
+end;
+
+function ShouldSkipPage(PageID: Integer): Boolean;
+begin
+  Result := False;
+  if PageID = RolePage.ID then
+    Result := (ExpandConstant('{param:NETWORKMODE|}') <> '') or FileExists(NetworkConfigPath())
+  else if PageID = ClientPage.ID then
+    Result := ChosenRole() <> 'client';
+end;
+
+function NextButtonClick(CurPageID: Integer): Boolean;
+begin
+  Result := True;
+  if (CurPageID = ClientPage.ID) and (Clean(ClientPage.Values[1]) <> '') and (Clean(ClientPage.Values[0]) = '') then
+  begin
+    MsgBox('Enter the server address that goes with this pairing code.', mbError, MB_OK);
+    Result := False;
+  end;
+end;
+
+{ Runs before the service starts, so it comes up in the right role the first time. }
+procedure ApplyNetworkRole();
+var
+  ResultCode: Integer;
+  Args, Role, Port: String;
+begin
+  Role := ChosenRole();
+  if Role = '' then Exit;
+  Args := '--configure-network --mode ';
+  if Role = 'client' then
+  begin
+    Args := Args + 'client';
+    if ServerAddressValue() <> '' then Args := Args + ' --server "' + ServerAddressValue() + '"';
+  end
+  else
+  begin
+    Args := Args + 'server';
+    if Role = 'shared' then Args := Args + ' --allow-clients';
+    Port := Clean(ExpandConstant('{param:PORT|}'));
+    if Port <> '' then Args := Args + ' --port "' + Port + '"';
+  end;
+  if not Exec(ExpandConstant('{app}\Service\PHax.Service.exe'), Args, '', SW_HIDE, ewWaitUntilTerminated, ResultCode) or (ResultCode <> 0) then
+    Log('Could not apply the network role, exit code ' + IntToStr(ResultCode));
+end;
+
+{ A failed pairing must not fail the install: the PC is set up as a client either way and can pair from Settings. }
+procedure PairWithServer();
+var
+  ResultCode: Integer;
+begin
+  if (ChosenRole() <> 'client') or (ServerAddressValue() = '') or (PairingCodeValue() = '') then Exit;
+  if Exec(ExpandConstant('{app}\Service\PHax.Service.exe'), '--pair --server "' + ServerAddressValue() + '" --code "' + PairingCodeValue() + '"',
+          '', SW_HIDE, ewWaitUntilTerminated, ResultCode) and (ResultCode = 0) then Exit;
+  Log('Pairing failed, exit code ' + IntToStr(ResultCode));
+  if not WizardSilent() then
+    MsgBox('PHax could not connect to the fax server. Check that the server PC is on, then enter the address and a new pairing code in PHax under Settings > Network.', mbInformation, MB_OK);
+end;
+
 procedure StopRunningCopies();
 var
   ResultCode: Integer;

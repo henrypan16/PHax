@@ -30,6 +30,9 @@ public sealed partial class IncomingPage : Page
 
     private static IServiceProvider AppServices => App.GetService<IServiceProvider>();
 
+    /// <summary>Only the PC running the simulator can make it call.</summary>
+    public static Visibility ShowSimulate(bool simulated, bool client) => simulated && !client ? Visibility.Visible : Visibility.Collapsed;
+
     private void OnShellChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(ShellViewModel.Status)) Render();
@@ -68,8 +71,8 @@ public sealed partial class IncomingPage : Page
     }
 
     private async void Answer_Click(object sender, RoutedEventArgs e) =>
-        await App.GetService<ServiceClient>().TrySendAsync(PipeCommands.AnswerCall);
+        await App.GetService<IServiceConnection>().TrySendAsync(PipeCommands.AnswerCall);
 
     private async void Simulate_Click(object sender, RoutedEventArgs e) =>
-        await App.GetService<ServiceClient>().TrySendAsync("simulateIncoming");
+        await App.GetService<IServiceConnection>().TrySendAsync("simulateIncoming");
 }

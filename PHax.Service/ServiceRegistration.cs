@@ -1,6 +1,8 @@
 using PHax.Core.Interfaces;
+using PHax.Core.Models;
 using PHax.Core.Services;
 using PHax.Data;
+using PHax.Service.Remote;
 
 namespace PHax.Service;
 
@@ -22,8 +24,15 @@ public static class ServiceRegistration
         services.AddSingleton<CommandHandler>();
         services.AddSingleton<ModemSupervisor>();
         services.AddSingleton<BackupService>();
+        services.AddSingleton<NetworkConfigStore>();
+        services.AddSingleton<NetworkServerState>();
+        services.AddSingleton<ServerCertificate>();
+        services.AddSingleton<PairingService>();
+        services.AddSingleton<FaxRecords>();
+        services.AddSingleton<RemoteApi>();
         services.AddHostedService(sp => sp.GetRequiredService<ModemSupervisor>());
         services.AddHostedService(sp => sp.GetRequiredService<BackupService>());
+        services.AddHostedService<NetworkServerHost>();
         if (enablePipe) services.AddHostedService<PipeServer>();
         return services;
     }

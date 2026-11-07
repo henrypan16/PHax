@@ -97,6 +97,41 @@ public static class TiffFax
         return EnumerateIfds(bytes).Count();
     }
 
+    /// <summary>
+    /// Checks a document uploaded by a paired PC before it is decoded or stored, and returns its page count. Only what
+    /// PHax itself writes is accepted (T.6, standard fax width, plausible length), because <see cref="Read(byte[])"/>
+    /// trusts the dimensions in the file and this input comes from the network.
+    /// </summary>
+    /// <exception cref="InvalidDataException">The file is not a fax document PHax can send.</exception>
+    public static int ValidateUpload(byte[] file, int maxPages)
+    {
+        const int width = 1728, maxHeight = 8000;
+        try
+        {
+            int pages = 0;
+            foreach (var ifd in EnumerateIfds(file))
+            {
+                if (++pages > maxPages) throw new InvalidDataException($"The fax has more than {maxPages} pages.");
+                uint Get(ushort tag, uint def = 0) => ifd.TryGetValue(tag, out var v) && v.Length > 0 ? v[0] : def;
+                if (Get(256) != width || Get(257) is 0 or > maxHeight) throw new InvalidDataException("The fax has an unsupported page size.");
+                if (Get(258, 1) != 1 || Get(259, 1) != 4) throw new InvalidDataException("The fax is not a T.6 bilevel document.");
+                var offsets = ifd.GetValueOrDefault((ushort)273);
+                var counts = ifd.GetValueOrDefault((ushort)279);
+                if (offsets is not { Length: > 0 } || counts is null || counts.Length != offsets.Length) throw new InvalidDataException("The fax has no page data.");
+                for (int s = 0; s < offsets.Length; s++)
+                    if ((ulong)offsets[s] + counts[s] > (ulong)file.Length) throw new InvalidDataException("The fax is truncated.");
+            }
+            if (pages == 0) throw new InvalidDataException("The fax has no pages.");
+            // The structure is sound; decoding proves the page data is too, so a bad upload fails here rather than at dial time.
+            Read(file);
+            return pages;
+        }
+        catch (Exception ex) when (ex is FaxDecodeException or IndexOutOfRangeException or ArgumentException or OverflowException or NotSupportedException)
+        {
+            throw new InvalidDataException("The fax document is damaged.", ex);
+        }
+    }
+
     public static List<FaxBitmap> Read(byte[] file)
     {
         var pages = new List<FaxBitmap>();

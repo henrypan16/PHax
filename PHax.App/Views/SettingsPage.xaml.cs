@@ -12,6 +12,11 @@ public sealed partial class SettingsPage : Page
     {
         InitializeComponent();
         if (!ViewModel.HasIntegrations) IntegrationsTabItem.Visibility = Visibility.Collapsed;
+        // A client PC has no modem of its own; those settings live on the server. Removed rather than collapsed:
+        // collapsing the initially selected item leaves SelectorBar showing no tabs at all.
+        if (ViewModel.IsClient)
+            foreach (var item in Tabs.Items.Where(i => (string)i.Tag is "modem" or "incoming" or "outgoing" or "redial" or "backup").ToList())
+                Tabs.Items.Remove(item);
         Loaded += async (_, _) =>
         {
             await ViewModel.LoadAsync();
@@ -49,7 +54,8 @@ public sealed partial class SettingsPage : Page
     protected override void OnNavigatedTo(Microsoft.UI.Xaml.Navigation.NavigationEventArgs e)
     {
         base.OnNavigatedTo(e);
-        var item = Tabs.Items.FirstOrDefault(i => (string)i.Tag == _lastTab) ?? Tabs.Items[0];
+        var visible = Tabs.Items.Where(i => i.Visibility == Visibility.Visible).ToList();
+        var item = visible.FirstOrDefault(i => (string)i.Tag == _lastTab) ?? visible[0];
         Tabs.SelectedItem = item;
         ShowTab((string)item.Tag);
     }
@@ -64,7 +70,7 @@ public sealed partial class SettingsPage : Page
         _lastTab = tag;
         var panels = new Dictionary<string, StackPanel>
         {
-            ["modem"] = ModemTab, ["general"] = GeneralTab, ["incoming"] = IncomingTab, ["outgoing"] = OutgoingTab,
+            ["modem"] = ModemTab, ["general"] = GeneralTab, ["network"] = NetworkTab, ["incoming"] = IncomingTab, ["outgoing"] = OutgoingTab,
             ["redial"] = RedialTab, ["integrations"] = IntegrationsTab, ["backup"] = BackupTab, ["notifications"] = NotificationsTab,
         };
         foreach (var (key, panel) in panels) panel.Visibility = key == tag ? Visibility.Visible : Visibility.Collapsed;
@@ -79,7 +85,40 @@ public sealed partial class SettingsPage : Page
     private async void Save_Click(object sender, RoutedEventArgs e)
     {
         try { await ViewModel.SaveAsync(); }
-        catch (Exception ex) { await Dialogs.MessageAsync(XamlRoot, "Save settings", ex.Message); }
+        catch (Exception ex)
+        {
+            await Dialogs.MessageAsync(XamlRoot, "Save settings", ex.Message);
+            return;
+        }
+        await OfferRestartAsync();
+    }
+
+    private async Task OfferRestartAsync()
+    {
+        if (ViewModel.RestartRequired &&
+            await Dialogs.ConfirmAsync(XamlRoot, "Restart PHax", "The network change takes effect when PHax restarts. Restart now?", "Restart"))
+            await App.RestartAsync();
+    }
+
+    private async void AddPc_Click(object sender, RoutedEventArgs e)
+    {
+        try { await ViewModel.CreatePairingCodeAsync(); }
+        catch (Exception ex) { await Dialogs.MessageAsync(XamlRoot, "Add a PC", ex.Message); }
+        await ViewModel.RefreshClientsAsync();
+    }
+
+    private async void RemovePc_Click(object sender, RoutedEventArgs e)
+    {
+        if (((FrameworkElement)sender).DataContext is not PairedClientItem item) return;
+        if (!await Dialogs.ConfirmAsync(XamlRoot, "Remove PC", $"Stop {item.Name} from using this fax server? It would need a new pairing code to connect again.", "Remove")) return;
+        try { await ViewModel.RemoveClientAsync(item); }
+        catch (Exception ex) { await Dialogs.MessageAsync(XamlRoot, "Remove PC", ex.Message); }
+    }
+
+    private async void Connect_Click(object sender, RoutedEventArgs e)
+    {
+        await ViewModel.ConnectAsync();
+        await OfferRestartAsync();
     }
 
     private void RefreshPorts_Click(object sender, RoutedEventArgs e)

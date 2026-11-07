@@ -34,7 +34,7 @@
                         </StackPanel>
                     </Button>
                     <Button Content="Simulate incoming fax" Click="Simulate_Click"
-                            Visibility="{x:Bind local:Bind.Visible(Shell.IsSimulated), Mode=OneWay}" />
+                            Visibility="{x:Bind local:IncomingPage.ShowSimulate(Shell.IsSimulated, Shell.IsClient), Mode=OneWay}" />
                 </StackPanel>
             </Grid>
         </Border>

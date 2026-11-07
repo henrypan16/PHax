@@ -15,13 +15,18 @@ public static class SingleInstance
     private static EventWaitHandle? _showEvent;
 
     /// <summary>Returns true if this process is the first instance.</summary>
-    public static bool TryAcquire()
+    /// <param name="waitForExit">Keep trying for a while: the previous instance is restarting and about to exit.</param>
+    public static bool TryAcquire(bool waitForExit = false)
     {
-        var mutex = new Mutex(initiallyOwned: true, MutexName, out bool created);
-        if (!created)
+        var deadline = DateTime.UtcNow.AddSeconds(waitForExit ? 15 : 0);
+        Mutex mutex;
+        while (true)
         {
+            mutex = new Mutex(initiallyOwned: true, MutexName, out bool created);
+            if (created) break;
             mutex.Dispose();
-            return false;
+            if (DateTime.UtcNow >= deadline) return false;
+            Thread.Sleep(200);
         }
         _mutex = mutex;
         _showEvent = new EventWaitHandle(false, EventResetMode.AutoReset, ShowEventName);

@@ -37,6 +37,7 @@ public sealed class ModemSupervisor(
     ServiceProtocolLog protocol,
     OutboundProcessor outbound,
     InboundProcessor inbound,
+    NetworkConfigStore networkConfig,
     ILogger<ModemSupervisor> log) : BackgroundService
 {
     private readonly Channel<SupervisorRequest> _requests = Channel.CreateUnbounded<SupervisorRequest>();
@@ -68,6 +69,14 @@ public sealed class ModemSupervisor(
                 var deferred = _deferred;
                 _deferred = null;
                 await HandleWhileClosedAsync(deferred, stopping);
+                continue;
+            }
+
+            // A client PC faxes through its server. Any port in its old settings stays closed, and its queue stays idle.
+            if (networkConfig.Load().Mode == NetworkMode.Client)
+            {
+                status.Update(s => s with { ModemState = ModemState.NotConfigured, PortName = null, IsSimulated = false, LastError = null });
+                await WaitWhileClosedAsync(TimeSpan.FromMinutes(5), stopping);
                 continue;
             }
 

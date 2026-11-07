@@ -28,6 +28,9 @@ public sealed class AppPaths
     public string InboxDirectory => Path.Combine(StorageRoot, "Inbox");
     public string FailedReceptionsDirectory => Path.Combine(StorageRoot, "FailedReceptions");
     public string DefaultBackupDirectory => Path.Combine(DataRoot, "Backups");
+    public string NetworkConfigPath => Path.Combine(DataRoot, "network.json");
+    /// <summary>The server's TLS key. Unlike the rest of the data root, this folder is readable only by the service and administrators.</summary>
+    public string ServerSecretsDirectory => Path.Combine(DataRoot, "Server");
 
     /// <summary>
     /// Moves data left by installations made before the project was renamed (FTIFax) into the PHax folders:

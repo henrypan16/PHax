@@ -16,7 +16,7 @@ public sealed partial class AttachmentItem : ObservableObject
     [ObservableProperty] public partial string PagesText { get; set; } = "…";
 }
 
-public sealed partial class ComposeViewModel(FaxDocumentService documents, IDbContextFactory<FaxDbContext> db, SettingsStore settings) : ObservableObject
+public sealed partial class ComposeViewModel(FaxDocumentService documents, IDbContextFactory<FaxDbContext> db, IFaxData data) : ObservableObject
 {
     private Guid? _draftId;
 
@@ -34,10 +34,9 @@ public sealed partial class ComposeViewModel(FaxDocumentService documents, IDbCo
 
     public async Task InitializeAsync(Guid? draftId, IEnumerable<string>? initialFiles)
     {
-        var s = await settings.LoadAsync();
-        IncludeCoverPage = s.Outgoing.DefaultCoverPage;
+        IncludeCoverPage = (await data.GetCoverDefaultsAsync()).IncludeByDefault;
+        foreach (var r in await data.RecentRecipientsAsync()) RecentRecipients.Add(r);
         await using var ctx = await db.CreateDbContextAsync();
-        foreach (var r in await ctx.Recipients.AsNoTracking().OrderByDescending(r => r.LastUsedUtc).Take(50).ToListAsync()) RecentRecipients.Add(r);
         if (draftId is { } id)
         {
             var draft = await ctx.OutboundFaxes.AsNoTracking().Include(f => f.Attachments).FirstAsync(f => f.Id == id);
@@ -146,6 +145,14 @@ public sealed partial class ComposeViewModel(FaxDocumentService documents, IDbCo
             Status = send ? $"Queued: {job.PageCount} page(s) to {job.FaxNumber}." : "Draft saved.";
             App.GetService<ShellViewModel>().RaiseOutboundChanged();
             return true;
+        }
+        catch (FaxNotSubmittedException ex)
+        {
+            // Sending again updates this draft instead of creating a second one.
+            _draftId = ex.DraftId;
+            Status = ex.Message;
+            App.GetService<ShellViewModel>().RaiseOutboundChanged();
+            return false;
         }
         catch (Exception ex)
         {

@@ -56,7 +56,8 @@ public sealed partial class DiagnosticsPage : Page
     private async Task RefreshAsync()
     {
         RenderStatus(_shell.Status);
-        if (!_client.IsConnected) return;
+        // On a client PC the local service is idle and the modem is on the server, so there is nothing to show here.
+        if (!_client.IsConnected || _shell.IsClient) return;
         try
         {
             var snap = await _client.RequestAsync<DiagnosticsSnapshot>(PipeCommands.GetDiagnostics);

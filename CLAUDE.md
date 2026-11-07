@@ -27,6 +27,14 @@ powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1 [-SkipTests]       
 - `PHax.Service` is the **only** process that opens the COM port (`ModemSupervisor` loop: idle/RING, answer, send
   queue, probe, reconnect). The app talks to it over the named pipe `PHax.Service.v1` (newline-delimited JSON,
   `PHax.Core/Ipc/PipeProtocol.cs`). Both share SQLite (WAL) at `C:\ProgramData\PHax\phax.db`.
+- Network role: `NetworkConfig` (`network.json` in the data root, written by the installer through `PHax.Service.exe
+  --configure-network/--pair`, or by Settings). **Server**: `Service/Remote/NetworkServerHost` runs Kestrel (HTTPS,
+  self-signed certificate) only while `AllowClients` is on; `RemoteApi` is the API. **Client**: the service stays
+  installed but `ModemSupervisor` leaves the port closed; the app talks to the server through `RemoteConnection` and
+  `RemoteFaxData`, the client-side twins of `ServiceClient` and `LocalFaxData` behind `IServiceConnection`/`IFaxData`.
+  The role is read once at app startup, so changing it restarts the app. Drafts and settings stay in the client's local
+  database. Inbox is shared; outbound faxes belong to the submitting PC (`SubmittedByClientId`). Pairing is explained on
+  `PairingProof`.
 - `PHax.Modem`: `Serial/SerialPortTransport` (dedicated reader thread) → `Class1/ModemLink` (lines, DLE, AT history)
   → `Class1/Class1Modem` (T.31 primitives) → `T30/T30Sender`, `T30/T30Receiver` (state machines).
 - `PHax.Imaging`: `T4Encoder`/`T4Decoder` (MH, MR, T.6), `TiffFax`, `PdfFax`, `DocumentRasterizer` (PDF via
@@ -51,6 +59,10 @@ powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1 [-SkipTests]       
 - Never fall back to Class 2 commands; unsupported modems must be reported as such.
 - Never silently substitute the simulator for a real modem; simulated items are flagged and the UI shows a banner.
 - Do not log page contents.
+- Uploads from clients are untrusted: `TiffFax.ValidateUpload` before `Read`, and keep them in memory rather than in
+  the service's temp folder. Client ids for faxes make uploads idempotent, so a lost response can never dial twice.
+- The network listener must never stop the service: exceptions end in `NetworkServerState.Error`, not in the host.
+- Only events in `RemoteApi.SharedEvents` reach clients, and job events only reach the PC that owns the job.
 
 ## Hardware and testing realities
 
@@ -66,6 +78,10 @@ powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1 [-SkipTests]       
 - When adding a fix for a real-hardware log, add a simulation test reproducing it (`SimulatedLine.Faults`).
 - Dev loop without hardware: run the service and app with `PHAX_DATA_ROOT=<scratch folder>` and enable the
   simulator in settings.
+- The installed PHax may be running on the dev PC. The pipe name and single-instance mutex are fixed, so a second
+  service or app would reach (or be blocked by) the installed one, whatever `PHAX_DATA_ROOT` says.
+- `RemoteServerTests` run the real host and client over TLS on loopback, but not the WinUI app; check client-mode UI
+  changes in the app too. `WebApplication.CreateSlimBuilder` has no `regex` route constraint: it fails on the first request.
 
 ## Conventions and gotchas
 

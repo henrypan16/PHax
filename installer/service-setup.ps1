@@ -23,6 +23,8 @@ switch ($Action) {
     "remove" {
         Stop-FaxService
         if (Get-Service -Name $name -ErrorAction SilentlyContinue) { & sc.exe delete $name | Out-Null }
+        # Created by the service while it allows other PCs to connect.
+        & netsh.exe advfirewall firewall delete rule name="PHax Server" | Out-Null
     }
     "install" {
         $exe = Join-Path $InstallDir "Service\PHax.Service.exe"

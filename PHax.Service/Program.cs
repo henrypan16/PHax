@@ -4,6 +4,9 @@ using PHax.Service;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
 
+// The installer configures the network role through this executable; those calls never start the service.
+if (await PHax.Service.Remote.NetworkCli.TryRunAsync(args) is { } exitCode) return exitCode;
+
 // PHax Windows Service: sole owner of the fax modem. Runs as a console app when started interactively.
 var paths = new AppPaths();
 string? migrationError = null;

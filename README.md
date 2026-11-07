@@ -120,6 +120,28 @@ Commons Clause, PHax is source-available rather than OSI open source. See [LICEN
 Scanning uses [NAPS2.Sdk](https://www.naps2.com/sdk) (LGPL 2.1 or later), shipped as unmodified separate DLLs; see
 [NOTICE](NOTICE) and [licenses/](licenses/).
 
+## Using one modem from several PCs
+
+One PC with the modem can send and receive for the other PCs on the same local network:
+
+1. On the PC with the modem, open **Settings → Network**, choose **Server** and click **Add a PC**. PHax shows a
+   one-time pairing code and the addresses other PCs can use.
+2. On the other PC, choose **Client** in **Settings → Network**, enter the server address and code, and click
+   **Connect**. PHax restarts as a client.
+
+The installer offers the same choice. For unattended installs, pass `/NETWORKMODE=server`, `/NETWORKMODE=shared`
+(with an optional `/PORT=n`) or `/NETWORKMODE=client` (with `/SERVER=name-or-ip` and `/PAIRCODE=code`).
+
+- All PCs share one **Inbox**: read state, renames and deletions apply to everyone. Each PC sees only its **own**
+  outgoing faxes; the server PC sees all of them. **Drafts** stay on the PC where they were written.
+- Documents are converted on the client and uploaded as a fax image. Pages are fetched when viewed and not stored on
+  client PCs, but printing and PDF export still work, and those files are then up to whoever made them.
+- Connections use TLS, pinned to the server's certificate during pairing, and every client has its own revocable
+  access. Clients are identified by PC, not by person, so anyone using a paired PC can read the shared Inbox: lock
+  paired PCs as you would the server. Remove a PC at any time in **Settings → Network** on the server.
+- Windows must treat the network as **Private**. PHax opens its port (47811 by default) for the local subnet only.
+  Nothing listens on the network unless **Allow other PCs to connect** is on.
+
 ## Disclaimer
 
 Fax is used for sensitive documents. PHax is provided as-is, without warranty; you are responsible for meeting

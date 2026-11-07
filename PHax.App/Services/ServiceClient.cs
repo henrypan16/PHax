@@ -6,7 +6,7 @@ using PHax.Core.Ipc;
 namespace PHax.App.Services;
 
 /// <summary>Named-pipe client for the PHax service with automatic reconnection.</summary>
-public sealed class ServiceClient : IAsyncDisposable
+public sealed class ServiceClient : IServiceConnection, IAsyncDisposable
 {
     private readonly ConcurrentDictionary<Guid, TaskCompletionSource<PipeEnvelope>> _pending = new();
     private readonly CancellationTokenSource _cts = new();
@@ -16,6 +16,7 @@ public sealed class ServiceClient : IAsyncDisposable
     private Task? _loop;
 
     public bool IsConnected { get; private set; }
+    public string UnavailableMessage => "The PHax service is not running.";
     public event Action<bool>? ConnectionChanged;
     public event Action<PipeEnvelope>? EventReceived;
 

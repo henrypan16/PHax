@@ -1,7 +1,8 @@
 using PHax.App.Services;
 using PHax.App.ViewModels;
 using PHax.Core.Models;
-using PHax.Core.Services;
+using PHax.Core.Remote;
+using PHax.Imaging.Encoding;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 
@@ -22,24 +23,31 @@ public sealed partial class InboxPage : Page
     {
         var item = ((ListView)sender).SelectedItem as ReceivedItem;
         if (item is null) { Pane.Clear(); return; }
-        if (item.Model.TiffPath is not { } path) { Pane.Clear("This fax has no document (the reception did not complete)."); return; }
-        Pane.Show(path, item.Title, FaxPreviewPane.StoredTiff(path));
+        if (item.Model.TiffPath is null) { Pane.Clear("This fax has no document (the reception did not complete)."); return; }
+        Pane.ShowFax(item.Title, item.Model);
         // Shown in the reading pane = read, as in an email client.
-        if (item.IsUnread) await ViewModel.SetReadAsync(item, true);
+        if (item.IsUnread) await MarkAsync(item, true);
     }
 
     private async Task<List<FaxBitmap>?> PagesAsync()
     {
-        if (ViewModel.Selected?.Model.TiffPath is not { } path) return null;
-        try { return await Task.Run(() => App.GetService<FaxDocumentService>().LoadPages(path)); }
+        if (ViewModel.Selected is not { Model.TiffPath: not null } item) return null;
+        try { return [.. await App.GetService<IFaxData>().LoadReceivedPagesAsync(item.Model)]; }
         catch (Exception ex) { await Dialogs.MessageAsync(XamlRoot, "Document", ex.Message); return null; }
+    }
+
+    private async Task MarkAsync(ReceivedItem item, bool read)
+    {
+        // On a client PC this can fail if the server just went away; reading the fax must not turn into an error.
+        try { await ViewModel.SetReadAsync(item, read); }
+        catch (FaxServerException ex) { Serilog.Log.Warning("Could not update the fax: {Message}", ex.Message); }
     }
 
     private async void Preview_Click(object sender, RoutedEventArgs e)
     {
         if (ViewModel.Selected is not { } item || await PagesAsync() is not { } pages) return;
         PreviewWindow.Open(item.Title, pages);
-        if (item.IsUnread) await ViewModel.SetReadAsync(item, true);
+        if (item.IsUnread) await MarkAsync(item, true);
     }
 
     private void List_DoubleTapped(object sender, Microsoft.UI.Xaml.Input.DoubleTappedRoutedEventArgs e) => Preview_Click(sender, e);
@@ -59,12 +67,12 @@ public sealed partial class InboxPage : Page
         if (ViewModel.Selected is { } item && await PagesAsync() is { } pages) await FaxActions.SaveTiffAsync(App.Shell, pages, item.Title);
     }
 
-    private void Forward_Click(object sender, RoutedEventArgs e)
+    private async void Forward_Click(object sender, RoutedEventArgs e)
     {
-        if (ViewModel.Selected?.Model.TiffPath is not { } path) return;
-        // The received TIFF becomes an attachment of a new fax; the original stays in the Inbox.
-        var copy = Path.Combine(Path.GetTempPath(), $"{FaxActions.Sanitize(ViewModel.Selected.Title)}.tif");
-        File.Copy(App.GetService<AppPaths>().Resolve(path), copy, overwrite: true);
+        if (ViewModel.Selected is not { } item || await PagesAsync() is not { } pages) return;
+        // The received fax becomes an attachment of a new fax; the original stays in the Inbox.
+        var copy = Path.Combine(Path.GetTempPath(), $"{FaxActions.Sanitize(item.Title)}.tif");
+        await Task.Run(() => TiffFax.Write(copy, pages));
         ComposeWindow.Open(null, [copy]);
     }
 
@@ -72,22 +80,29 @@ public sealed partial class InboxPage : Page
     {
         if (ViewModel.Selected is not { } item) return;
         var name = await Dialogs.PromptAsync(XamlRoot, "Rename fax", item.Title);
-        if (!string.IsNullOrWhiteSpace(name)) await ViewModel.RenameAsync(item, name);
+        if (string.IsNullOrWhiteSpace(name)) return;
+        try { await ViewModel.RenameAsync(item, name); }
+        catch (FaxServerException ex) { await Dialogs.MessageAsync(XamlRoot, "Rename fax", ex.Message); }
     }
 
     private async void Delete_Click(object sender, RoutedEventArgs e)
     {
         if (ViewModel.Selected is not { } item) return;
-        if (await Dialogs.ConfirmAsync(XamlRoot, "Delete fax", $"Delete \"{item.Title}\" and its files?", "Delete")) await ViewModel.DeleteAsync(item);
+        var message = App.GetService<ShellViewModel>().IsClient
+            ? $"Delete \"{item.Title}\" for everyone? The Inbox is shared with the other PCs."
+            : $"Delete \"{item.Title}\" and its files?";
+        if (!await Dialogs.ConfirmAsync(XamlRoot, "Delete fax", message, "Delete")) return;
+        try { await ViewModel.DeleteAsync(item); }
+        catch (FaxServerException ex) { await Dialogs.MessageAsync(XamlRoot, "Delete fax", ex.Message); }
     }
 
     private async void MarkUnread_Click(object sender, RoutedEventArgs e)
     {
-        if (ViewModel.Selected is { } item) await ViewModel.SetReadAsync(item, false);
+        if (ViewModel.Selected is { } item) await MarkAsync(item, false);
     }
 
     private async void MarkRead_Click(object sender, RoutedEventArgs e)
     {
-        if (ViewModel.Selected is { } item) await ViewModel.SetReadAsync(item, true);
+        if (ViewModel.Selected is { } item) await MarkAsync(item, true);
     }
 }

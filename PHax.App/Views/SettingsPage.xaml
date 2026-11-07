@@ -36,6 +36,9 @@
             <SelectorBarItem Text="General" Tag="general">
                 <SelectorBarItem.Icon><FontIcon Glyph="&#xE713;" /></SelectorBarItem.Icon>
             </SelectorBarItem>
+            <SelectorBarItem Text="Network" Tag="network">
+                <SelectorBarItem.Icon><FontIcon Glyph="&#xE968;" /></SelectorBarItem.Icon>
+            </SelectorBarItem>
             <SelectorBarItem Text="Incoming" Tag="incoming">
                 <SelectorBarItem.Icon><FontIcon Glyph="&#xE896;" /></SelectorBarItem.Icon>
             </SelectorBarItem>
@@ -127,6 +130,58 @@
                     <CheckBox Content="Start minimized" IsChecked="{x:Bind ViewModel.Settings.General.StartMinimized, Mode=TwoWay}" />
                     <CheckBox Content="Enable application logging" IsChecked="{x:Bind ViewModel.Settings.General.EnableLogging, Mode=TwoWay}" />
                     <local:FolderField Header="Storage directory (empty = ProgramData\PHax\Storage)" Path="{x:Bind ViewModel.Settings.General.StorageDirectory, Mode=TwoWay}" />
+                </StackPanel>
+
+                <!-- Network -->
+                <StackPanel x:Name="NetworkTab" Style="{StaticResource TabPanel}" Visibility="Collapsed">
+                    <TextBlock Style="{StaticResource TabIntro}"
+                               Text="One PC with a fax modem can send and receive for the other PCs on your local network. They share its Inbox; each PC sees only its own outgoing faxes." />
+                    <RadioButtons Header="This PC" SelectedIndex="{x:Bind ViewModel.ModeIndex, Mode=TwoWay}">
+                        <RadioButton Content="Server: has the fax modem" />
+                        <RadioButton Content="Client: uses the fax modem on another PC" />
+                    </RadioButtons>
+
+                    <StackPanel Spacing="10" Visibility="{x:Bind local:Bind.Visible(ViewModel.ServerSelected), Mode=OneWay}">
+                        <CheckBox Content="Allow other PCs on the local network to connect" IsChecked="{x:Bind ViewModel.AllowClients, Mode=TwoWay}" />
+                        <NumberBox Header="Network port" Minimum="1024" Maximum="65535" SpinButtonPlacementMode="Compact" Width="200" HorizontalAlignment="Left"
+                                   Value="{x:Bind ViewModel.NetworkPort, Mode=TwoWay}" />
+                        <TextBlock TextWrapping="Wrap" Style="{StaticResource CaptionTextBlockStyle}"
+                                   Text="Windows must treat this network as Private, or the other PCs cannot reach this one. PHax opens the port for the local network only." />
+                        <Button Content="Add a PC" Click="AddPc_Click" />
+                        <TextBlock Text="{x:Bind ViewModel.NewCodeText, Mode=OneWay}" TextWrapping="Wrap" IsTextSelectionEnabled="True"
+                                   Visibility="{x:Bind local:Bind.VisibleIfText(ViewModel.NewCodeText), Mode=OneWay}" />
+                        <TextBlock Text="Connected PCs" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,8,0,0" />
+                        <ItemsControl ItemsSource="{x:Bind ViewModel.PairedClients}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:PairedClientItem">
+                                    <Grid ColumnSpacing="12" Padding="0,4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel>
+                                            <TextBlock Text="{x:Bind Name}" />
+                                            <TextBlock Text="{x:Bind Detail}" Style="{StaticResource CaptionTextBlockStyle}" />
+                                        </StackPanel>
+                                        <Button Grid.Column="1" Content="Remove" Click="RemovePc_Click" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+
+                    <StackPanel Spacing="10" Visibility="{x:Bind local:Bind.Visible(ViewModel.ClientSelected), Mode=OneWay}">
+                        <TextBox Header="Server address (computer name or IP address)" Width="420" HorizontalAlignment="Left"
+                                 Text="{x:Bind ViewModel.ServerAddressText, Mode=TwoWay}" />
+                        <TextBox Header="Pairing code (from Add a PC on the server)" Width="420" HorizontalAlignment="Left"
+                                 Text="{x:Bind ViewModel.PairingCode, Mode=TwoWay}" />
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button Content="Connect" Click="Connect_Click" IsEnabled="{x:Bind local:Bind.Not(ViewModel.IsPairing), Mode=OneWay}" />
+                            <ProgressRing IsActive="{x:Bind ViewModel.IsPairing, Mode=OneWay}" Width="20" Height="20" />
+                        </StackPanel>
+                        <TextBlock Text="{x:Bind ViewModel.NetworkStatus, Mode=OneWay}" TextWrapping="Wrap"
+                                   Visibility="{x:Bind local:Bind.VisibleIfText(ViewModel.NetworkStatus), Mode=OneWay}" />
+                    </StackPanel>
                 </StackPanel>
 
                 <!-- Incoming -->

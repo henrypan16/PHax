@@ -1,5 +1,6 @@
 using PHax.Core.Ipc;
 using PHax.Core.Models;
+using PHax.Core.Remote;
 using PHax.Core.Services;
 using PHax.Data;
 using PHax.Imaging.Conversion;
@@ -35,8 +36,22 @@ public sealed class ComposeData
     public string? CoverToAddress { get; init; }
 }
 
+/// <summary>The fax could not be handed to the server, so it was kept as the draft <see cref="DraftId"/>.</summary>
+public sealed class FaxNotSubmittedException(Guid draftId, string message, Exception inner) : Exception(message, inner)
+{
+    public Guid DraftId { get; } = draftId;
+}
+
 /// <summary>Persists drafts and prepares fax documents (rasterisation, cover page, T.6 TIFF) before queuing.</summary>
-public sealed class FaxDocumentService(IDbContextFactory<FaxDbContext> dbFactory, AppPaths paths, SettingsStore settingsStore, ServiceClient client)
+public sealed class FaxDocumentService(
+    IDbContextFactory<FaxDbContext> dbFactory,
+    AppPaths paths,
+    SettingsStore settingsStore,
+    IServiceConnection client,
+    IFaxData faxData,
+    FaxRecords records,
+    NetworkConfig network,
+    RemoteConnection remote)
 {
     public async Task<OutboundFax> SaveAsync(ComposeData data, bool queue, IProgress<string>? progress = null)
     {
@@ -111,17 +126,18 @@ public sealed class FaxDocumentService(IDbContextFactory<FaxDbContext> dbFactory
             if (job.IncludeCoverPage)
             {
                 progress?.Report("Rendering cover page…");
-                pages.Insert(0, RenderCover(data, settings, pages.Count + 1));
+                pages.Insert(0, RenderCover(data, await faxData.GetCoverDefaultsAsync(), pages.Count + 1));
             }
             progress?.Report("Encoding fax document…");
             var doc = Path.Combine(jobDir, "fax.tif");
             await Task.Run(() => TiffFax.Write(doc, pages));
             job.DocumentPath = paths.MakeRelative(doc);
             job.PageCount = pages.Count;
+            if (network.Mode == NetworkMode.Client) return await SubmitToServerAsync(db, job, doc, progress);
             job.Status = OutboundStatus.Queued;
             job.QueuedUtc = DateTime.UtcNow;
             job.MaxAttempts = settings.Redial.Enabled ? Math.Max(1, settings.Redial.MaxAttempts) : 1;
-            await RememberRecipientAsync(db, job);
+            await FaxRecords.RememberRecipientAsync(db, job);
         }
         else
         {
@@ -133,12 +149,35 @@ public sealed class FaxDocumentService(IDbContextFactory<FaxDbContext> dbFactory
     }
 
     /// <summary>
+    /// Hands a prepared fax to the server. The fax stays a local draft until the server has it, and the job id goes
+    /// with it, so sending the same draft again after a lost response cannot dial twice. Afterwards nothing is left on
+    /// this PC: the server owns the fax from then on.
+    /// </summary>
+    private async Task<OutboundFax> SubmitToServerAsync(FaxDbContext db, OutboundFax job, string document, IProgress<string>? progress)
+    {
+        job.Status = OutboundStatus.Draft;
+        await db.SaveChangesAsync();
+        progress?.Report("Sending to the fax server…");
+        OutboundFax queued;
+        try
+        {
+            await using var file = File.OpenRead(document);
+            queued = await remote.Server.SubmitAsync(job.Id, new SubmitFaxRequest(job.RecipientName, job.FaxNumber, job.Subject, job.IncludeCoverPage, job.CoverMessage), file);
+        }
+        catch (FaxServerException ex)
+        {
+            throw new FaxNotSubmittedException(job.Id, $"{ex.Message} The fax was kept in Drafts.", ex);
+        }
+        await records.DeleteOutboundAsync(job.Id);
+        return queued;
+    }
+
+    /// <summary>
     /// Renders the pages exactly as <see cref="SaveAsync"/> would queue them (cover page first, then every attachment
     /// in order) without saving anything.
     /// </summary>
     public async Task<List<FaxBitmap>> RenderPreviewAsync(ComposeData data, IProgress<string>? progress = null, CancellationToken ct = default)
     {
-        var settings = await settingsStore.LoadAsync(ct);
         var rasterizer = new DocumentRasterizer();
         var pages = new List<FaxBitmap>();
         foreach (var a in data.Attachments)
@@ -149,14 +188,14 @@ public sealed class FaxDocumentService(IDbContextFactory<FaxDbContext> dbFactory
         if (data.IncludeCoverPage)
         {
             progress?.Report("Rendering cover page…");
-            pages.Insert(0, RenderCover(data, settings, pages.Count + 1));
+            pages.Insert(0, RenderCover(data, await faxData.GetCoverDefaultsAsync(), pages.Count + 1));
         }
         return pages;
     }
 
-    private static FaxBitmap RenderCover(ComposeData data, AppSettings settings, int totalPages) =>
+    private static FaxBitmap RenderCover(ComposeData data, CoverDefaults defaults, int totalPages) =>
         CoverPageRenderer.Render(new CoverPageInfo(data.RecipientName.Trim(), data.FaxNumber.Trim(),
-            data.CoverFrom ?? settings.Outgoing.CoverPageFrom, data.CoverFromFax ?? settings.Incoming.LocalStationId,
+            data.CoverFrom ?? defaults.From, data.CoverFromFax ?? defaults.StationId,
             data.Subject.Trim(), data.CoverMessage, totalPages, DateTime.Now)
         {
             ToAddress = data.CoverToAddress ?? "",
@@ -186,64 +225,6 @@ public sealed class FaxDocumentService(IDbContextFactory<FaxDbContext> dbFactory
         db.OutboundFaxes.Add(job);
         await db.SaveChangesAsync();
         return job;
-    }
-
-    /// <summary>Creates a new queued job that resends an existing document (used by Resend).</summary>
-    public async Task<OutboundFax> ResendAsync(Guid sourceId)
-    {
-        var settings = await settingsStore.LoadAsync();
-        await using var db = await dbFactory.CreateDbContextAsync();
-        var src = await db.OutboundFaxes.AsNoTracking().FirstAsync(f => f.Id == sourceId);
-        var job = new OutboundFax
-        {
-            RecipientName = src.RecipientName, FaxNumber = src.FaxNumber, Subject = src.Subject,
-            IncludeCoverPage = src.IncludeCoverPage, CoverMessage = src.CoverMessage, PageCount = src.PageCount,
-            Status = OutboundStatus.Queued, QueuedUtc = DateTime.UtcNow,
-            MaxAttempts = settings.Redial.Enabled ? Math.Max(1, settings.Redial.MaxAttempts) : 1,
-        };
-        var doc = Path.Combine(paths.JobDirectory(job.Id), "fax.tif");
-        Directory.CreateDirectory(Path.GetDirectoryName(doc)!);
-        File.Copy(paths.Resolve(src.DocumentPath!), doc);
-        job.DocumentPath = paths.MakeRelative(doc);
-        db.OutboundFaxes.Add(job);
-        await db.SaveChangesAsync();
-        await client.TrySendAsync(PipeCommands.JobSubmitted, new JobRef(job.Id));
-        return job;
-    }
-
-    public async Task DeleteOutboundAsync(Guid id)
-    {
-        await using var db = await dbFactory.CreateDbContextAsync();
-        var job = await db.OutboundFaxes.FirstOrDefaultAsync(f => f.Id == id);
-        if (job is null) return;
-        if (job.Status is OutboundStatus.Dialing or OutboundStatus.Transmitting) throw new InvalidOperationException("Cancel the transmission first.");
-        db.OutboundFaxes.Remove(job);
-        await db.SaveChangesAsync();
-        try { Directory.Delete(paths.JobDirectory(id), recursive: true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
-    }
-
-    public async Task DeleteReceivedAsync(Guid id)
-    {
-        await using var db = await dbFactory.CreateDbContextAsync();
-        var fax = await db.ReceivedFaxes.FirstOrDefaultAsync(f => f.Id == id);
-        if (fax is null) return;
-        if (fax.TiffPath is not null) TryDelete(paths.Resolve(fax.TiffPath));
-        if (fax.PdfPath is not null) TryDelete(paths.Resolve(fax.PdfPath));
-        db.ReceivedFaxes.Remove(fax);
-        await db.SaveChangesAsync();
-    }
-
-    public List<FaxBitmap> LoadPages(string storedPath) => TiffFax.Read(paths.Resolve(storedPath));
-
-    private static async Task RememberRecipientAsync(FaxDbContext db, OutboundFax job)
-    {
-        var existing = await db.Recipients.FirstOrDefaultAsync(r => r.FaxNumber == job.FaxNumber);
-        if (existing is null) db.Recipients.Add(new Recipient { Name = job.RecipientName, FaxNumber = job.FaxNumber });
-        else
-        {
-            existing.LastUsedUtc = DateTime.UtcNow;
-            if (!string.IsNullOrWhiteSpace(job.RecipientName)) existing.Name = job.RecipientName;
-        }
     }
 
     private static string UniquePath(string dir, string fileName)

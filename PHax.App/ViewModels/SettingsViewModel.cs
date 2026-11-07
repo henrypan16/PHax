@@ -4,6 +4,7 @@ using PHax.App.Services;
 using PHax.Core.Integrations;
 using PHax.Core.Ipc;
 using PHax.Core.Models;
+using PHax.Core.Remote;
 using PHax.Data;
 using PHax.Modem.Profiles;
 using PHax.Modem.Serial;
@@ -26,8 +27,23 @@ public sealed class IntegrationItem(IAppIntegration integration, IntegrationSett
     }
 }
 
+/// <summary>A PC paired with this server, on the Network tab.</summary>
+public sealed class PairedClientItem(PairedClientDto client)
+{
+    public Guid Id { get; } = client.Id;
+    public string Name { get; } = client.Name;
+    public string Detail { get; } = client.LastSeenUtc is { } seen
+        ? $"Last connected {seen.ToLocalTime():g}{(client.LastAddress is null ? "" : $" from {client.LastAddress}")}"
+        : "Has not connected yet";
+}
+
 /// <summary>Settings editor. Numeric settings are exposed as doubles for NumberBox two-way binding.</summary>
-public sealed partial class SettingsViewModel(SettingsStore store, ServiceClient client, IEnumerable<IAppIntegration> integrations) : ObservableObject
+public sealed partial class SettingsViewModel(
+    SettingsStore store,
+    ServiceClient client,
+    IEnumerable<IAppIntegration> integrations,
+    NetworkConfigStore networkStore,
+    NetworkConfig running) : ObservableObject
 {
     public static readonly int[] BaudRates = [9600, 19200, 38400, 57600, 115200];
     public static readonly int[] Speeds = [14400, 12000, 9600, 7200, 4800, 2400];
@@ -48,6 +64,114 @@ public sealed partial class SettingsViewModel(SettingsStore store, ServiceClient
 
     public bool HasIntegrations { get; } = integrations.Any();
     [ObservableProperty] public partial IReadOnlyList<IntegrationItem> Integrations { get; set; } = [];
+
+    /// <summary>The role the app is running in. A saved change takes effect after a restart.</summary>
+    public bool IsClient { get; } = running.Mode == NetworkMode.Client;
+
+    [ObservableProperty] public partial int ModeIndex { get; set; }
+    public bool ServerSelected => ModeIndex == 0;
+    public bool ClientSelected => ModeIndex == 1;
+    [ObservableProperty] public partial bool AllowClients { get; set; }
+    [ObservableProperty] public partial double NetworkPort { get; set; } = NetworkConfig.DefaultPort;
+    [ObservableProperty] public partial string ServerAddressText { get; set; } = "";
+    [ObservableProperty] public partial string PairingCode { get; set; } = "";
+    [ObservableProperty] public partial string NetworkStatus { get; set; } = "";
+    [ObservableProperty] public partial string NewCodeText { get; set; } = "";
+    [ObservableProperty] public partial bool IsPairing { get; set; }
+    public ObservableCollection<PairedClientItem> PairedClients { get; } = [];
+
+    partial void OnModeIndexChanged(int value)
+    {
+        OnPropertyChanged(nameof(ServerSelected));
+        OnPropertyChanged(nameof(ClientSelected));
+    }
+
+    /// <summary>True when the saved network role differs from what the running app was started with.</summary>
+    public bool RestartRequired
+    {
+        get
+        {
+            var saved = networkStore.Load();
+            return saved.Mode != running.Mode || (saved.Mode == NetworkMode.Client
+                && (saved.ServerAddress != running.ServerAddress || saved.ServerThumbprint != running.ServerThumbprint || saved.ProtectedToken != running.ProtectedToken));
+        }
+    }
+
+    private void LoadNetwork()
+    {
+        var config = networkStore.Load();
+        ModeIndex = config.Mode == NetworkMode.Client ? 1 : 0;
+        AllowClients = config.AllowClients;
+        NetworkPort = config.Port;
+        ServerAddressText = config.ServerAddress;
+        NetworkStatus = config.Mode != NetworkMode.Client ? ""
+            : config.IsPaired ? $"Connected to the fax server at {config.ServerAddress}."
+            : "This PC is not connected to a fax server yet.";
+    }
+
+    private void SaveNetwork()
+    {
+        var address = ServerAddressText.Trim();
+        if (ClientSelected && address.Length > 0 && ServerAddress.ToBaseUri(address) is null)
+            throw new InvalidOperationException($"\"{address}\" is not a valid server address.");
+        var config = networkStore.Load();
+        config.Mode = ClientSelected ? NetworkMode.Client : NetworkMode.Server;
+        config.AllowClients = AllowClients;
+        config.Port = double.IsNaN(NetworkPort) ? NetworkConfig.DefaultPort : (int)NetworkPort;
+        config.ServerAddress = address;
+        networkStore.Save(config);
+    }
+
+    public async Task RefreshClientsAsync()
+    {
+        PairedClients.Clear();
+        if (!client.IsConnected || IsClient) return;
+        try
+        {
+            foreach (var c in await client.RequestAsync<List<PairedClientDto>>(PipeCommands.ListClients) ?? []) PairedClients.Add(new PairedClientItem(c));
+        }
+        catch (Exception ex) when (ex is IOException or InvalidOperationException or TimeoutException) { NewCodeText = ex.Message; }
+    }
+
+    /// <summary>Saves the settings (the listener may need to start) and shows a one-time code for the next PC.</summary>
+    public async Task CreatePairingCodeAsync()
+    {
+        AllowClients = true;
+        await SaveAsync();
+        if (!client.IsConnected) { NewCodeText = "The PHax service is not running."; return; }
+        try
+        {
+            var code = await client.RequestAsync<PairingCodeDto>(PipeCommands.CreatePairingCode, null, TimeSpan.FromSeconds(15));
+            if (code is null) return;
+            var suffix = code.Port == NetworkConfig.DefaultPort ? "" : $":{code.Port}";
+            NewCodeText = $"Pairing code: {code.Code}\nWorks once, until {code.ExpiresUtc.ToLocalTime():t}. A new code replaces this one.\n" +
+                          $"Server address: {string.Join(" or ", code.Addresses.Select(a => a + suffix))}";
+        }
+        catch (Exception ex) when (ex is IOException or InvalidOperationException or TimeoutException) { NewCodeText = ex.Message; }
+    }
+
+    public async Task RemoveClientAsync(PairedClientItem item)
+    {
+        await client.SendAsync(PipeCommands.RemoveClient, new ClientRef(item.Id));
+        await RefreshClientsAsync();
+    }
+
+    /// <summary>Pairs with the server. Other settings are saved first, because pairing also switches this PC to client mode.</summary>
+    public async Task ConnectAsync()
+    {
+        IsPairing = true;
+        NetworkStatus = "Connecting…";
+        try
+        {
+            ModeIndex = 1;
+            await SaveAsync();
+            await networkStore.PairAsync(ServerAddressText, PairingCode);
+            PairingCode = "";
+            NetworkStatus = $"Connected to the fax server at {ServerAddressText.Trim()}.";
+        }
+        catch (Exception ex) when (ex is FaxServerException or InvalidOperationException) { NetworkStatus = ex.Message; }
+        finally { IsPairing = false; }
+    }
 
     private const string DefaultPrinterLabel = "(Default printer)";
     public ObservableCollection<string> Printers { get; } = [];
@@ -128,6 +252,8 @@ public sealed partial class SettingsViewModel(SettingsStore store, ServiceClient
     {
         Settings = await store.LoadAsync();
         Integrations = integrations.Select(i => new IntegrationItem(i, Settings.Integration)).ToList();
+        LoadNetwork();
+        await RefreshClientsAsync();
         RefreshPorts();
         await RefreshPrintersAsync();
         OnPropertyChanged(string.Empty);
@@ -151,6 +277,7 @@ public sealed partial class SettingsViewModel(SettingsStore store, ServiceClient
 
     public async Task SaveAsync()
     {
+        SaveNetwork();
         await SaveSettingsAsync();
         try { StartupRegistration.Apply(Settings.General.StartWithWindows, Settings.General.StartMinimized); }
         catch (Exception ex) when (ex is UnauthorizedAccessException or System.Security.SecurityException) { }

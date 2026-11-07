@@ -67,7 +67,7 @@ public sealed partial class MainWindow : Window
     [System.Runtime.InteropServices.DllImport("user32.dll")]
     private static extern bool SetForegroundWindow(IntPtr hwnd);
 
-    private async Task ExitAsync()
+    public async Task ExitAsync()
     {
         _exiting = true;
         _tray.Dispose();

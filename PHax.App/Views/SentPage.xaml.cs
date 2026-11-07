@@ -21,14 +21,14 @@ public sealed partial class SentPage : Page
     {
         var item = ((ListView)sender).SelectedItem as OutboundItem;
         if (item is null) Pane.Clear();
-        else if (item.Model.DocumentPath is not { } path) Pane.Clear("This fax has no document.");
-        else Pane.Show(path, item.Title, FaxPreviewPane.StoredTiff(path));
+        else if (item.Model.DocumentPath is null) Pane.Clear("This fax has no document.");
+        else Pane.ShowFax(item.Title, item.Model);
     }
 
     private async Task<List<FaxBitmap>?> PagesAsync()
     {
-        if (ViewModel.Selected?.Model.DocumentPath is not { } path) return null;
-        try { return await Task.Run(() => App.GetService<FaxDocumentService>().LoadPages(path)); }
+        if (ViewModel.Selected is not { Model.DocumentPath: not null } item) return null;
+        try { return [.. await App.GetService<IFaxData>().LoadOutboundPagesAsync(item.Model)]; }
         catch (Exception ex) { await Dialogs.MessageAsync(XamlRoot, "Document", ex.Message); return null; }
     }
 
@@ -73,6 +73,7 @@ public sealed partial class SentPage : Page
     {
         if (ViewModel.Selected is null) return;
         if (!await Dialogs.ConfirmAsync(XamlRoot, "Delete", "Delete this sent fax and its document?", "Delete")) return;
-        await ViewModel.DeleteSelectedAsync();
+        try { await ViewModel.DeleteSelectedAsync(); }
+        catch (Exception ex) { await Dialogs.MessageAsync(XamlRoot, "Delete", ex.Message); }
     }
 }

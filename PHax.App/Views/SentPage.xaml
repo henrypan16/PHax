@@ -45,6 +45,8 @@
                             <StackPanel Spacing="2">
                                 <TextBlock Text="{x:Bind Title, Mode=OneWay}" Style="{StaticResource BodyStrongTextBlockStyle}" />
                                 <TextBlock Text="{x:Bind Number, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}" />
+                                <TextBlock Text="{x:Bind SubmittedByText, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}"
+                                           Visibility="{x:Bind local:Bind.VisibleIfText(SubmittedByText), Mode=OneWay}" />
                                 <TextBlock Text="{x:Bind ConfirmationText, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="Wrap"
                                            Foreground="{ThemeResource SystemFillColorSuccessBrush}" />
                             </StackPanel>

@@ -37,6 +37,13 @@ public class OutboundFax
     /// <summary>True when the job was processed by the simulated modem. Simulated faxes never reached a phone line.</summary>
     public bool IsSimulated { get; set; }
 
+    /// <summary>The paired PC that submitted this fax; null when it was created on this PC.</summary>
+    public Guid? SubmittedByClientId { get; set; }
+    /// <summary>Name of that PC, kept for the audit trail after the PC is removed.</summary>
+    public string? SubmittedBy { get; set; }
+    /// <summary>Hash of a client's upload: tells a repeated upload from different content under the same id.</summary>
+    public string? SubmissionHash { get; set; }
+
     public List<FaxAttachment> Attachments { get; set; } = [];
     public List<TransmissionAttempt> TransmissionAttempts { get; set; } = [];
 }
@@ -136,6 +143,18 @@ public class NotificationRecord
     public Guid? RelatedId { get; set; }
     /// <summary>Set when the desktop app has displayed the notification.</summary>
     public bool Delivered { get; set; }
+}
+
+/// <summary>A PC allowed to use this server. Deleting the row revokes it at once.</summary>
+public class PairedClient
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public string Name { get; set; } = "";
+    /// <summary>SHA-256 of the access token. The token itself exists only on the client.</summary>
+    public string TokenHash { get; set; } = "";
+    public DateTime CreatedUtc { get; set; } = DateTime.UtcNow;
+    public DateTime? LastSeenUtc { get; set; }
+    public string? LastAddress { get; set; }
 }
 
 public class BackupRecord
