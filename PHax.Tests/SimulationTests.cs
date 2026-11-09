@@ -174,6 +174,28 @@ public sealed class SimulationTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task CancelWhileDialing_AbortsTheCall_AndNextDialGetsItsOwnResult()
+    {
+        // Real-line log: a send cancelled while the remote was still ringing left the modem dialing; the next ATD's
+        // first character aborted that call and its NO CARRIER was reported as "no fax machine responded".
+        var engine = Engine();
+        using (var cancel = new CancellationTokenSource(TimeSpan.FromMilliseconds(700)))
+        {
+            var send = await engine.CreateSender(_tx).SendAsync(new FaxSendRequest { DialString = ReceiverNumber, Pages = [TestPages.Text()] }, cancel.Token);
+            Assert.Equal(FaxOutcome.Cancelled, send.Outcome);
+        }
+
+        // The callee must stop ringing once the dial is aborted.
+        while (await _rx.WaitForUnsolicitedAsync(TimeSpan.FromMilliseconds(100), default) is not null) { }
+        Assert.Null(await _rx.WaitForUnsolicitedAsync(TimeSpan.FromSeconds(1), default));
+
+        _line.Faults.DialResult = SimulatedDialResult.Busy;
+        var next = await engine.CreateSender(_tx).SendAsync(new FaxSendRequest { DialString = ReceiverNumber, Pages = [TestPages.Text()] }, default);
+        Assert.Equal(FaxOutcome.Busy, next.Outcome);
+        Assert.Contains(_log.Snapshot(), e => e.Message.StartsWith("Dial cancelled"));
+    }
+
+    [Fact]
     public async Task FailedTraining_FallsBackToLowerSpeed()
     {
         _line.Faults.MaxCleanBitRate = 9600;

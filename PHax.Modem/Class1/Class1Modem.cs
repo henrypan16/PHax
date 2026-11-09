@@ -141,7 +141,26 @@ public sealed partial class Class1Modem : IFaxModem
     public async Task<DialResult> DialAsync(string number, bool tone, TimeSpan timeout, CancellationToken ct)
     {
         _pendingReceiveConnect = false;
-        var r = await Cmd($"ATD{(tone ? "T" : "P")}{number}", ct, timeout).ConfigureAwait(false);
+        var command = $"ATD{(tone ? "T" : "P")}{number}";
+        ct.ThrowIfCancellationRequested();
+        // Once ATD is out the modem dials on its own, so the write itself is not cancellable: a half-written command
+        // would leave it unclear whether the modem is dialing.
+        await _link.WriteCommandAsync(command, CancellationToken.None).ConfigureAwait(false);
+        AtResponse r;
+        try
+        {
+            r = await _link.ReadResultAsync(timeout, ct, command).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            // Without an abort the modem keeps dialing (the remote keeps ringing), and the next command's first
+            // character aborts the dial instead, so that command gets this call's NO CARRIER as its result.
+            _log.Log("MODEM", "Dial cancelled; aborting the call in progress.");
+            using var abort = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            try { await AbortAsync(abort.Token).ConfigureAwait(false); }
+            catch (Exception ex) when (ex is OperationCanceledException or IOException) { _log.Log("MODEM", $"Dial abort failed: {ex.Message}"); }
+            throw;
+        }
         if (r.TimedOut)
         {
             await AbortAsync(ct).ConfigureAwait(false);

@@ -213,12 +213,21 @@ public sealed class InboundProcessor(
             DisplayName = $"Fax from {call.CallerName ?? call.CallerNumber ?? "unknown sender"}",
             IsSimulated = modem.IsSimulated,
         };
+        string? v17Block = null;
         await using (var db = await dbFactory.CreateDbContextAsync(ct))
         {
+            // Checked before this call's own row exists, so only earlier receptions count.
+            if (!settings.Modem.LineCompatibilityMode)
+                v17Block = await ReceiveFallbackPolicy.V17BlockReasonAsync(db, call.CallerNumber, modem.IsSimulated, DateTime.UtcNow, ct);
             db.ReceivedFaxes.Add(record);
             await db.SaveChangesAsync(ct);
         }
         record.ProtocolLogPath = protocol.Log.BeginSessionFile(paths.ProtocolLogsDirectory, $"receive-{record.Id:N}");
+        if (v17Block is not null)
+        {
+            protocol.Log.Log("T30", $"V.17 not offered in DIS: {v17Block}.");
+            log.LogInformation("Reception {Id}: V.17 not offered ({Reason})", record.Id, v17Block);
+        }
         var started = DateTime.UtcNow;
         status.Update(s => s with { ModemState = ModemState.Receiving, Call = call with { State = "Answering", StartedUtc = started, AwaitingManualAnswer = false } });
 
@@ -242,7 +251,7 @@ public sealed class InboundProcessor(
                 MaxBitRate = settings.Outgoing.MaxSpeed,
                 AllowFine = true,
                 AllowMr = !settings.Modem.LineCompatibilityMode,
-                AllowV17 = !settings.Modem.LineCompatibilityMode,
+                AllowV17 = !settings.Modem.LineCompatibilityMode && v17Block is null,
                 PageReceived = (_, n) => status.Update(s => s with { Call = (s.Call ?? call) with { PagesReceived = n } }),
             }, ct);
             await StoreAsync(record, result, settings, started);

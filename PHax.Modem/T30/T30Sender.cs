@@ -44,11 +44,13 @@ public sealed class T30Sender : T30SessionBase, IFaxSender
         {
             Finish(FaxOutcome.Cancelled, _pageInDoubt ? "Cancelled during page transmission; the last page may have been received." : "Cancelled.", "CANCELLED");
             if (_connected) await SendDcnAndHangupAsync(Fcf.X).ConfigureAwait(false);
+            else await HangupQuietlyAsync().ConfigureAwait(false); // cancelled while dialing: make sure the line is on hook
         }
         catch (OperationCanceledException)
         {
             Finish(Classify(FaxOutcome.CommunicationFailure), "Transmission timeout exceeded.", "TIMEOUT");
             if (_connected) await SendDcnAndHangupAsync(Fcf.X).ConfigureAwait(false);
+            else await HangupQuietlyAsync().ConfigureAwait(false);
         }
         catch (ModemDisconnectedException ex)
         {

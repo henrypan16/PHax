@@ -352,8 +352,18 @@ public sealed class SimulatedModemTransport : ISerialTransport
         while (_signalCount.CurrentCount > 0) _signalCount.Wait(0);
         _peer = callee;
         var answered = callee.Ring(this, _opt.CallerNumber);
-        var finished = await Task.WhenAny(answered, Task.Delay(_opt.AnswerWait, ct)).ConfigureAwait(false);
-        if (finished != answered || !answered.Result)
+        // Like a real DCE, any character from the DTE while dialing aborts the call with NO CARRIER.
+        var deadline = DateTime.UtcNow + _opt.AnswerWait;
+        while (!answered.IsCompleted && DateTime.UtcNow < deadline)
+        {
+            if (DteByteAvailable())
+            {
+                _dteBytes.Clear();
+                break;
+            }
+            await Task.WhenAny(answered, Task.Delay(20, ct)).ConfigureAwait(false);
+        }
+        if (!answered.IsCompleted || !answered.Result)
         {
             callee.StopRinging();
             _peer = null;

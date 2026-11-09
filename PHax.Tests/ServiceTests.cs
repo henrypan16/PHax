@@ -37,6 +37,28 @@ public sealed class ServiceTests : IAsyncLifetime
 
     [Fact]
     [Trait("Category", "Unit")]
+    public async Task ReceiveFallbackPolicy_QueriesDatabase()
+    {
+        var now = DateTime.UtcNow;
+        await using (var db = await _db.CreateDbContextAsync())
+        {
+            db.ReceivedFaxes.AddRange(
+                new ReceivedFax { ReceivedUtc = now.AddMinutes(-2), Status = ReceivedStatus.Failed, Modulation = "V.17 14400", CallerId = "5551234" },
+                new ReceivedFax { ReceivedUtc = now.AddMinutes(-1), Status = ReceivedStatus.Failed, Modulation = "V.17 14400", IsSimulated = true });
+            await db.SaveChangesAsync();
+        }
+        await using (var db = await _db.CreateDbContextAsync())
+        {
+            Assert.NotNull(await ReceiveFallbackPolicy.V17BlockReasonAsync(db, "5551234", simulated: false, now, CancellationToken.None));
+            Assert.Null(await ReceiveFallbackPolicy.V17BlockReasonAsync(db, "5550000", simulated: false, now, CancellationToken.None));
+            // The simulated failure has no caller ID; it must only affect simulated calls.
+            Assert.Null(await ReceiveFallbackPolicy.V17BlockReasonAsync(db, null, simulated: false, now, CancellationToken.None));
+            Assert.NotNull(await ReceiveFallbackPolicy.V17BlockReasonAsync(db, null, simulated: true, now, CancellationToken.None));
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Unit")]
     public async Task QueueRecovery_RequeuesSafeJobs_AndMarksInterruptedTransmissionsUncertain()
     {
         var dialing = new OutboundFax { Status = OutboundStatus.Dialing, FaxNumber = "1" };
