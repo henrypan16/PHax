@@ -29,21 +29,20 @@ public sealed class UpdateService
         _checker.DownloadAsync(update, Path.Combine(Path.GetTempPath(), "PHax-Update"), progress, ct);
 
     /// <summary>
-    /// Starts the installer and waits for it. Normally the installer ends this process part-way through; if this method
-    /// returns, the installer finished or was stopped without doing so (for example the administrator prompt was declined).
-    /// The installer is started without elevation on purpose: Inno Setup then elevates itself and can reopen PHax as
-    /// the signed-in user rather than as administrator.
+    /// Starts the installer. Normally it ends this process part-way through; if it exits first, it finished or was
+    /// stopped without doing so (for example the administrator prompt was declined). It is started without elevation on
+    /// purpose: Inno Setup then elevates itself and can reopen PHax as the signed-in user rather than as administrator.
     /// </summary>
-    public async Task<int> RunInstallerAsync(string installerPath)
-    {
-        using var process = Process.Start(new ProcessStartInfo(installerPath, "/SILENT /SUPPRESSMSGBOXES /NORESTART /RELAUNCH")
+    /// <remarks>
+    /// Off the UI thread: ShellExecute does not return until Windows has checked the file (SmartScreen, antivirus), which
+    /// for an unsigned ~100 MB installer can take many seconds and would freeze the window.
+    /// </remarks>
+    public Task<Process> StartInstallerAsync(string installerPath) => Task.Run(() =>
+        Process.Start(new ProcessStartInfo(installerPath, "/SILENT /SUPPRESSMSGBOXES /NORESTART /RELAUNCH")
         {
             UseShellExecute = true,
             WorkingDirectory = Path.GetDirectoryName(installerPath)!,
-        }) ?? throw new InvalidOperationException("The installer could not be started.");
-        await process.WaitForExitAsync();
-        return process.ExitCode;
-    }
+        }) ?? throw new InvalidOperationException("The installer could not be started."));
 
     private static HttpClient CreateClient()
     {

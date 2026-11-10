@@ -421,10 +421,11 @@ public sealed partial class SettingsViewModel(
     }
 
     /// <summary>
-    /// Downloads (once per version) and runs the installer. Normally the installer closes PHax and this never returns;
-    /// a returned message means the update did not happen.
+    /// Downloads (once per version) and runs the installer, reporting each stage in <see cref="UpdateStatus"/>.
+    /// Normally the installer closes PHax and this never returns. A returned message means the update did not happen;
+    /// null means the user cancelled the download.
     /// </summary>
-    public async Task<string> DownloadAndInstallAsync()
+    public async Task<string?> DownloadAndInstallAsync(CancellationToken ct)
     {
         if (AvailableUpdate is not { } update) return "Check for updates first.";
         UpdateBusy = true;
@@ -434,20 +435,32 @@ public sealed partial class SettingsViewModel(
             {
                 IsDownloading = true;
                 DownloadProgress = 0;
-                UpdateStatus = $"Downloading {update.AssetName}…";
-                var progress = new Progress<double>(p => DownloadProgress = p);
-                _downloaded = (update, await updates.DownloadAsync(update, progress));
+                UpdateStatus = $"Downloading {update.ReleaseName} ({update.Size / 1_048_576.0:0} MB)…";
+                var progress = new Progress<double>(p =>
+                {
+                    DownloadProgress = p;
+                    UpdateStatus = $"Downloading {update.ReleaseName}… {p:P0}";
+                });
+                _downloaded = (update, await updates.DownloadAsync(update, progress, ct));
                 IsDownloading = false;
             }
             // The download can take minutes; a call may have started meanwhile.
             if (await GetUpdateBlockerAsync() is { } blocker) { UpdateStatus = blocker; return blocker; }
 
-            UpdateStatus = "Installing… PHax will close and reopen when the update is done.";
-            int code = await updates.RunInstallerAsync(_downloaded.Value.Path);
+            UpdateStatus = "Starting the installer… Windows checks it first, which can take a little while.";
+            using var installer = await updates.StartInstallerAsync(_downloaded.Value.Path);
+            UpdateStatus = "Installing… If Windows asks for administrator permission, choose Yes. PHax closes and reopens by itself when the update is done.";
+            await installer.WaitForExitAsync();
+            int code = installer.ExitCode;
             UpdateStatus = code == 0
                 ? "The update was installed. Restart PHax to use the new version."
                 : $"The update was not installed (installer exit code {code}). If Windows asked for administrator permission, it has to be allowed.";
             return UpdateStatus;
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            UpdateStatus = "Update cancelled.";
+            return null;
         }
         catch (Exception ex) when (ex is HttpRequestException or IOException or InvalidDataException or UnauthorizedAccessException
                                        or TaskCanceledException or System.ComponentModel.Win32Exception or InvalidOperationException)

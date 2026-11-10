@@ -106,6 +106,24 @@ public sealed class UpdateCheckerTests : IDisposable
         Assert.Empty(Directory.GetFiles(_dir)); // neither the installer nor the partial download is left behind
     }
 
+    [Fact]
+    public async Task Download_ReportsProgressAtMostOncePerPercent()
+    {
+        var content = RandomNumberGenerator.GetBytes(5_000_000); // ~60 read chunks per percent would flood the UI thread
+        var update = UpdateChecker.Evaluate(Release("v0.5.0", Asset("PHax-Setup-0.5.0.exe", content)), Installed).Update!;
+        using var http = new HttpClient(new FakeHandler(_ => new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(content) }));
+        var reports = new List<double>();
+        await new UpdateChecker(http).DownloadAsync(update, _dir, new SyncProgress(reports.Add), default);
+        Assert.InRange(reports.Count, 2, 101);
+        Assert.Equal(reports.Distinct().Count(), reports.Count);
+        Assert.Equal(1.0, reports[^1]);
+    }
+
+    private sealed class SyncProgress(Action<double> report) : IProgress<double>
+    {
+        public void Report(double value) => report(value);
+    }
+
     private sealed class FakeHandler(Func<HttpRequestMessage, HttpResponseMessage> respond) : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct) => Task.FromResult(respond(request));

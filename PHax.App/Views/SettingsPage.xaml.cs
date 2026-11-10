@@ -169,9 +169,62 @@ public sealed partial class SettingsPage : Page
                 "PHax and its service close while the update installs and PHax reopens when it is done. Faxes waiting in the Outbox are kept " +
                 "and sent afterwards. Save any fax you are writing first.\n\nWindows will ask for administrator permission.", "Update"))
             return;
-        var message = await ViewModel.DownloadAndInstallAsync();
+        var message = await RunUpdateWithProgressAsync();
         // Reaching this point means the installer did not take over (it normally closes PHax).
-        await Dialogs.MessageAsync(XamlRoot, "Update PHax", message);
+        if (message is not null) await Dialogs.MessageAsync(XamlRoot, "Update PHax", message);
+    }
+
+    /// <summary>
+    /// Shows a modal window for the whole update, so the user always sees what is happening and is not tempted to
+    /// close PHax while the installer starts. It can be cancelled only during the download.
+    /// </summary>
+    private async Task<string?> RunUpdateWithProgressAsync()
+    {
+        using var cancel = new CancellationTokenSource();
+        var status = new TextBlock { TextWrapping = TextWrapping.Wrap, Text = "Preparing the update…" };
+        var bar = new ProgressBar { Maximum = 1, IsIndeterminate = true, Margin = new Thickness(0, 16, 0, 0) };
+        var note = new TextBlock
+        {
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 16, 0, 0),
+            Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"],
+            Text = "Keep PHax open. It closes by itself when the installer takes over and reopens when the update is done.",
+        };
+        var dialog = new ContentDialog
+        {
+            XamlRoot = XamlRoot,
+            Title = "Updating PHax",
+            Content = new StackPanel { MinWidth = 380, Children = { status, bar, note } },
+            CloseButtonText = "Cancel",
+        };
+        bool done = false;
+        dialog.Closing += (_, args) =>
+        {
+            if (done) return;
+            args.Cancel = true; // Cancel (or Esc) stops the download; the window closes when that has finished.
+            if (ViewModel.IsDownloading) cancel.Cancel();
+        };
+        void Sync()
+        {
+            status.Text = ViewModel.UpdateStatus;
+            bar.IsIndeterminate = !ViewModel.IsDownloading;
+            bar.Value = ViewModel.DownloadProgress;
+            dialog.CloseButtonText = ViewModel.IsDownloading && !cancel.IsCancellationRequested ? "Cancel" : "";
+        }
+        System.ComponentModel.PropertyChangedEventHandler onChanged = (_, _) => Sync();
+        ViewModel.PropertyChanged += onChanged;
+        var shown = dialog.ShowAsync();
+        try
+        {
+            return await ViewModel.DownloadAndInstallAsync(cancel.Token);
+        }
+        finally
+        {
+            ViewModel.PropertyChanged -= onChanged;
+            done = true;
+            dialog.Hide();
+            await shown;
+        }
     }
 
     private void RefreshPorts_Click(object sender, RoutedEventArgs e)

@@ -66,14 +66,20 @@ public sealed class UpdateChecker(HttpClient http, string repository = UpdateChe
                 using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
                 var buffer = new byte[81920];
                 long total = 0;
-                int n;
+                int n, lastPercent = -1;
                 while ((n = await source.ReadAsync(buffer, ct).ConfigureAwait(false)) > 0)
                 {
                     total += n;
                     if (total > update.Size) throw new InvalidDataException("The download is larger than the installer GitHub lists.");
                     hash.AppendData(buffer, 0, n);
                     await target.WriteAsync(buffer.AsMemory(0, n), ct).ConfigureAwait(false);
-                    progress?.Report(update.Size > 0 ? (double)total / update.Size : 0);
+                    // Once per percent: each report is posted to the UI thread, which must stay free.
+                    int percent = update.Size > 0 ? (int)(total * 100 / update.Size) : 0;
+                    if (percent != lastPercent)
+                    {
+                        lastPercent = percent;
+                        progress?.Report(percent / 100.0);
+                    }
                 }
                 if (total != update.Size) throw new InvalidDataException("The download is incomplete.");
                 if (!Convert.ToHexString(hash.GetHashAndReset()).Equals(update.Sha256, StringComparison.OrdinalIgnoreCase))
