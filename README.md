@@ -8,7 +8,8 @@
 </p>
 
 **[Download PHax for Windows](https://github.com/henrypan16/PHax/releases/latest)**: on the release page, open **Assets** and click
-`PHax-Setup-<version>.exe`.
+`PHax-Setup-<version>.exe`. Website: **[henrypan16.github.io/PHax](https://henrypan16.github.io/PHax/)**. Questions:
+[Discussions](https://github.com/henrypan16/PHax/discussions).
 
 PHax is a Windows fax application that sends and receives faxes through an ordinary **USB fax modem** — no fax
 server, no online fax service, and no dependency on the Windows Fax Service or "Windows Fax and Scan".
@@ -26,9 +27,10 @@ T.30 session negotiation, V.21 HDLC framing, training and speed fallback, and T.
 
 ## Status
 
-PHax is young software. Real faxes have been sent and received with a **Conexant CX93001** USB modem (sold as the
-StarTech USB fax modem). Other Class 1 modems should work through the generic
-profile but have not been tested — reports are welcome (see [docs/HARDWARE-TESTING.md](docs/HARDWARE-TESTING.md)).
+PHax is young software. Real faxes have been sent and received with the
+**[StarTech USB56KEMH2](https://www.startech.com/en-us/USB56KEMH2)** USB fax modem (Conexant chipset; it identifies itself as a CX93001). Other
+Class 1 modems should work through the generic profile but have not been tested. Reports are welcome in
+[Discussions](https://github.com/henrypan16/PHax/discussions) (see also [docs/HARDWARE-TESTING.md](docs/HARDWARE-TESTING.md)).
 
 Known limitations: no ECM (error correction mode), no polling, A4/Letter width only (1728 pels), one modem per PC.
 VoIP phone lines often break the fastest fax speed (V.17); PHax falls back to V.29 automatically and has a
@@ -37,7 +39,8 @@ VoIP phone lines often break the fastest fax speed (V.17); PHax falls back to V.
 ## Requirements
 
 - Windows 10 version 1809 or later, or Windows 11 (x64)
-- A USB fax modem that supports **Class 1 or Class 1.0** (Class 2-only modems are not supported)
+- A USB fax modem that supports **Class 1 or Class 1.0** (Class 2-only modems are not supported). If you need one,
+  get the tested **[StarTech USB56KEMH2](https://www.startech.com/en-us/USB56KEMH2)**.
 - An analog phone line (or a VoIP adapter port; see the limitation above)
 
 ## Install
@@ -119,6 +122,7 @@ Class 1 engine rather than wrapping efax or HylaFAX.
 
 ## Contributing
 
+Questions and "does my modem work?" belong in [Discussions](https://github.com/henrypan16/PHax/discussions).
 Issues and pull requests are welcome. Hardware reports are especially useful: include the modem model, the
 **Settings → Diagnostics → Export logs** output (it never contains page images) and what happened.
 

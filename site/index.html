@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PHax: free fax software for Windows with a USB fax modem</title>
+  <meta name="description" content="PHax sends and receives faxes on Windows through a USB fax modem and your phone line. No monthly fees, no online fax service, no cloud account. Free and open source.">
+  <link rel="icon" href="logo.png">
+  <style>
+    :root {
+      --bg: #f7f8fa; --surface: #ffffff; --text: #1b1f24; --muted: #5a6370; --border: #e1e4e8;
+      --accent: #0b63ce; --accent-text: #ffffff; --accent-soft: #e8f1fc;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #111418; --surface: #1a1f25; --text: #e8eaed; --muted: #9aa3ad; --border: #2c333b;
+        --accent: #4c9bf0; --accent-text: #0b1520; --accent-soft: #1b2a3b;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: var(--bg); color: var(--text);
+      font: 16px/1.6 "Segoe UI", system-ui, -apple-system, sans-serif;
+    }
+    a { color: var(--accent); }
+    .wrap { max-width: 960px; margin: 0 auto; padding: 0 16px; }
+    header.hero { text-align: center; padding: 56px 0 40px; }
+    header.hero img { width: 120px; height: auto; }
+    h1 { font-size: clamp(28px, 5vw, 40px); line-height: 1.2; margin: 16px 0 8px; }
+    .lead { font-size: 18px; color: var(--muted); max-width: 640px; margin: 0 auto 28px; }
+    .buttons { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
+    .btn {
+      display: inline-block; padding: 12px 22px; border-radius: 8px; font-weight: 600; text-decoration: none;
+      border: 1px solid var(--border); background: var(--surface); color: var(--text);
+    }
+    .btn.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+    .small { font-size: 14px; color: var(--muted); }
+    section { padding: 32px 0; border-top: 1px solid var(--border); }
+    h2 { font-size: 24px; margin: 0 0 16px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; }
+    .card h3 { margin: 0 0 6px; font-size: 17px; }
+    .card p { margin: 0; color: var(--muted); }
+    .callout { background: var(--accent-soft); border-radius: 10px; padding: 18px 20px; }
+    ol, ul { padding-left: 22px; }
+    li { margin: 4px 0; }
+    footer { padding: 32px 0 48px; border-top: 1px solid var(--border); color: var(--muted); font-size: 14px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="hero">
+      <img src="logo.png" alt="PHax logo">
+      <h1>Fax from your Windows PC, without a monthly fee</h1>
+      <p class="lead">PHax sends and receives faxes through a USB fax modem and your existing phone line. Faxes never
+        leave your office: no online fax service, no cloud account. Free and open source.</p>
+      <div class="buttons">
+        <a class="btn primary" href="https://github.com/henrypan16/PHax/releases/latest">Download for Windows</a>
+        <a class="btn" href="https://github.com/henrypan16/PHax/discussions">Ask a question</a>
+      </div>
+      <p class="small">Windows 10 (1809 or later) or Windows 11, 64-bit. On the download page, click
+        <strong>PHax-Setup-&lt;version&gt;.exe</strong> under Assets.</p>
+    </header>
+
+    <section>
+      <h2>What it does</h2>
+      <div class="grid">
+        <div class="card"><h3>Send and receive</h3><p>Fax PDFs, Word documents, images and scans, with cover pages.
+          Received faxes land in an Inbox you can preview, print, forward or save as PDF.</p></div>
+        <div class="card"><h3>Works in the background</h3><p>A Windows service answers calls and sends the queue
+          with automatic redial, even when nobody is signed in. It can print incoming faxes automatically.</p></div>
+        <div class="card"><h3>Confirmed delivery</h3><p>A fax is only marked Sent after the receiving machine
+          confirms every page. Anything uncertain is flagged, never silently resent.</p></div>
+        <div class="card"><h3>One modem for the office</h3><p>One PC with the modem can fax for the other PCs on your
+          network. They share the Inbox over an encrypted connection.</p></div>
+        <div class="card"><h3>Scanning</h3><p>Scan paper documents straight into a fax from WIA or TWAIN
+          scanners.</p></div>
+        <div class="card"><h3>Updates itself</h3><p>Check for updates in Settings and install them in a couple of
+          clicks. Your faxes and settings are kept.</p></div>
+      </div>
+    </section>
+
+    <section>
+      <h2>What you need</h2>
+      <div class="callout">
+        <p><strong>A USB fax modem that supports Class 1.</strong> PHax is tested with the
+          <a href="https://www.startech.com/en-us/USB56KEMH2">StarTech USB56KEMH2</a>
+          (USB 2.0 56K V.92 fax modem, Conexant chipset). Other Class 1 modems may work but have not been tested yet.
+          Class 2-only modems don't work.</p>
+      </div>
+      <ul>
+        <li>A Windows 10 (version 1809 or later) or Windows 11 PC, 64-bit</li>
+        <li>An analog phone line, or a VoIP adapter port (turn on <em>VoIP / digital phone line compatibility</em>
+          in PHax)</li>
+        <li>Other PCs that share the modem don't need their own</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Get started</h2>
+      <ol>
+        <li>Plug the modem into the PC and the phone line into the modem.</li>
+        <li><a href="https://github.com/henrypan16/PHax/releases/latest">Download PHax</a> and run the installer.
+          Windows SmartScreen may warn you because the installer is not code-signed yet: choose
+          <em>More info → Run anyway</em>.</li>
+        <li>Open PHax, go to <strong>Settings → Modem</strong>, choose the modem's COM port and click
+          <strong>Test connection</strong>.</li>
+      </ol>
+    </section>
+
+    <section>
+      <h2>Help and feedback</h2>
+      <p>Questions and "does my modem work?" go to <a href="https://github.com/henrypan16/PHax/discussions">Discussions</a>.
+        Found a bug? <a href="https://github.com/henrypan16/PHax/issues">Open an issue</a> and attach
+        <strong>Settings → Diagnostics → Export logs</strong> (the logs never contain fax pages).</p>
+    </section>
+
+    <footer>
+      PHax is created by Henry Phan (Phan Software) and licensed under the
+      <a href="https://github.com/henrypan16/PHax/blob/main/LICENSE">Apache License 2.0</a>.
+      Source code on <a href="https://github.com/henrypan16/PHax">GitHub</a>.
+      PHax is provided as is, without warranty; you are responsible for meeting the privacy and record-keeping rules
+      that apply to you.
+    </footer>
+  </div>
+</body>
+</html>
