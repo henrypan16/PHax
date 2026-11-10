@@ -130,6 +130,24 @@
                     <CheckBox Content="Start minimized" IsChecked="{x:Bind ViewModel.Settings.General.StartMinimized, Mode=TwoWay}" />
                     <CheckBox Content="Enable application logging" IsChecked="{x:Bind ViewModel.Settings.General.EnableLogging, Mode=TwoWay}" />
                     <local:FolderField Header="Storage directory (empty = ProgramData\PHax\Storage)" Path="{x:Bind ViewModel.Settings.General.StorageDirectory, Mode=TwoWay}" />
+
+                    <TextBlock Text="Updates" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,12,0,0" />
+                    <TextBlock Text="{x:Bind ViewModel.VersionLabel}" />
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button Content="Check for updates" Click="CheckUpdates_Click" IsEnabled="{x:Bind local:Bind.Not(ViewModel.UpdateBusy), Mode=OneWay}" />
+                        <Button Content="Download and install" Style="{StaticResource AccentButtonStyle}" Click="InstallUpdate_Click"
+                                Visibility="{x:Bind local:Bind.Visible(ViewModel.HasUpdate), Mode=OneWay}"
+                                IsEnabled="{x:Bind local:Bind.Not(ViewModel.UpdateBusy), Mode=OneWay}" />
+                        <HyperlinkButton Content="What's new" NavigateUri="{x:Bind ViewModel.ReleaseNotesUri, Mode=OneWay}"
+                                         Visibility="{x:Bind local:Bind.Visible(ViewModel.HasUpdate), Mode=OneWay}" />
+                        <ProgressRing IsActive="{x:Bind ViewModel.UpdateBusy, Mode=OneWay}" Width="20" Height="20" />
+                    </StackPanel>
+                    <ProgressBar Maximum="1" Value="{x:Bind ViewModel.DownloadProgress, Mode=OneWay}" MaxWidth="420" HorizontalAlignment="Left" Width="420"
+                                 Visibility="{x:Bind local:Bind.Visible(ViewModel.IsDownloading), Mode=OneWay}" />
+                    <TextBlock Text="{x:Bind ViewModel.UpdateStatus, Mode=OneWay}" TextWrapping="Wrap"
+                               Visibility="{x:Bind local:Bind.VisibleIfText(ViewModel.UpdateStatus), Mode=OneWay}" />
+                    <TextBlock TextWrapping="Wrap" Style="{StaticResource CaptionTextBlockStyle}"
+                               Text="Updates come from the PHax releases on GitHub. Installing needs administrator permission; your faxes, settings and history are kept." />
                 </StackPanel>
 
                 <!-- Network -->
@@ -248,6 +266,11 @@
 
                 <!-- Integrations: optional add-ons; the tab is hidden when none is installed -->
                 <StackPanel x:Name="IntegrationsTab" Style="{StaticResource TabPanel}" Visibility="Collapsed">
+                    <TextBlock Style="{StaticResource TabIntro}"
+                               Text="Add-ons are installed with their own installers and stay installed when PHax is updated. Remove them in Windows Settings > Apps." />
+                    <InfoBar IsOpen="True" IsClosable="False" Severity="Warning" Title="Some add-ons were not loaded"
+                             Message="{x:Bind ViewModel.IntegrationProblems}"
+                             Visibility="{x:Bind local:Bind.VisibleIfText(ViewModel.IntegrationProblems)}" />
                     <ItemsControl ItemsSource="{x:Bind ViewModel.Integrations, Mode=OneWay}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate x:DataType="vm:IntegrationItem">

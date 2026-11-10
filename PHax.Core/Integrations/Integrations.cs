@@ -4,8 +4,8 @@ using PHax.Core.Models;
 namespace PHax.Core.Integrations;
 
 /// <summary>
-/// Entry point of an optional add-on, loaded by the desktop app at startup from <c>PHax.Integration.*.dll</c> next to
-/// <c>PHax.exe</c>. Needs a public parameterless constructor. Builds without such a DLL are the standard edition.
+/// Entry point of an optional add-on, loaded by the desktop app at startup from <c>PHax.Integration.*.dll</c> in
+/// <c>Addons\&lt;Name&gt;\</c> (see <see cref="IntegrationLoader"/>). Needs a public parameterless constructor.
 /// </summary>
 public interface IPhaxIntegration
 {

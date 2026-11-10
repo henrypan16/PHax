@@ -19,6 +19,11 @@ powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1 [-SkipTests]       
 
 - Bump `<Version>` in `Directory.Build.props` for every installer handed to the user (installs upgrade in place).
 - Installer: Inno Setup 6 (`installer/PHax.iss`), output `out\installer\PHax-Setup-<version>.exe`.
+- Add-on installers: `scripts\build-addon.ps1 -Name <Name>` (after `build.ps1`) packages `..\PHax.<Name>` with
+  `installer/PHax-Addon.iss` into `out\addons\PHax-<Name>-Addon-<addon version>.exe`.
+- In-app updates (Settings → General): `PHax.Core/Updates/UpdateChecker` reads the latest GitHub release of
+  `henrypan16/PHax` and installs `PHax-Setup-x.y.z.exe`, verified against GitHub's SHA-256 digest. So releases need a
+  `vX.Y.Z` tag and the installer attached under its original name; it then runs with `/SILENT /RELAUNCH`.
 - Package versions are central: `Directory.Packages.props`.
 - EF migrations: `dotnet ef migrations add <Name> --project PHax.Data --output-dir Migrations` (tool in `dotnet-tools.json`).
 
@@ -45,11 +50,14 @@ powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1 [-SkipTests]       
   in NOTICE). WIA in-process; TWAIN only via NAPS2's x86 worker (`NAPS2.Worker.exe`, x64 build only), because the
   drivers are 32-bit and in-process 64-bit TWAIN hung without a 64-bit TWAINDSM. Scans become fax TIFFs via `Bilevel`
   and are added as ordinary attachments. The dev PC has no scanner, so scanning is verified only on the fax PCs.
-- Integrations (editions): `PHax.Core/Integrations`. The app loads `PHax.Integration.*.dll` from its folder at startup
-  (`IntegrationLoader`); integrations implement `IAppIntegration` and use `IFaxSubmitter`/`IUserNotifier`; their
-  settings live in `AppSettings.Integration` (free-form keys, preserved by builds without them). Integration code lives
-  in separate private repos next to this one; `build.ps1 -Edition <Name>` builds `..\PHax.<Name>` into the app and
-  names the installer `PHax-<Name>-Setup-<version>.exe`. Keep this repo vendor-neutral.
+- Integrations (add-ons): `PHax.Core/Integrations`. The app loads `PHax.Integration.*.dll` at startup
+  (`IntegrationLoader`) from `{app}\Addons\<Name>\` (installed by the add-on's own setup; PHax setup never touches it
+  except to delete it on uninstall, and moves old in-app-folder "edition" DLLs there on upgrade) and, for dev builds,
+  from the app folder. App assemblies always win over an add-on's copies. Integrations implement `IAppIntegration`
+  and use `IFaxSubmitter`/`IUserNotifier`; their settings live in `AppSettings.Integration` (free-form keys, preserved
+  by builds without them). Changing that contract incompatibly means bumping `IntegrationApi.Version`: add-ons built
+  for another version are skipped and listed on Settings → Integrations. Add-on code lives in separate private repos
+  next to this one. Keep this repo vendor-neutral.
 
 ## Invariants — do not break
 

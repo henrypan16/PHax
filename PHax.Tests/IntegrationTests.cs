@@ -22,7 +22,9 @@ public sealed class IntegrationTests : IDisposable
     public void Loader_EmptyFolder_LoadsNothing()
     {
         var services = new ServiceCollection();
-        Assert.Empty(IntegrationLoader.Load(services, _dir));
+        var result = IntegrationLoader.Load(services, _dir, Path.Combine(_dir, "Addons"));
+        Assert.Empty(result.Messages);
+        Assert.Empty(result.Problems);
         Assert.Empty(services);
     }
 
@@ -31,8 +33,37 @@ public sealed class IntegrationTests : IDisposable
     {
         File.WriteAllText(Path.Combine(_dir, "PHax.Integration.Broken.dll"), "not an assembly");
         var services = new ServiceCollection();
-        Assert.Contains("could not load", Assert.Single(IntegrationLoader.Load(services, _dir)));
+        var result = IntegrationLoader.Load(services, _dir);
+        Assert.Contains("could not load", Assert.Single(result.Messages));
+        Assert.StartsWith("Broken add-on:", Assert.Single(result.Problems));
         Assert.Empty(services);
+    }
+
+    [Fact]
+    public void Loader_FindsAddonsInTheirOwnFolders_AndPrefersThemOverTheAppFolder()
+    {
+        var app = Path.Combine(_dir, "App");
+        var addons = IntegrationLoader.AddonsDirectoryFor(app);
+        Assert.Equal(Path.Combine(_dir, "Addons"), addons);
+        Directory.CreateDirectory(app);
+        Directory.CreateDirectory(Path.Combine(addons, "One"));
+        Directory.CreateDirectory(Path.Combine(addons, "Two"));
+        File.WriteAllText(Path.Combine(addons, "One", "PHax.Integration.One.dll"), "x");
+        File.WriteAllText(Path.Combine(addons, "Two", "PHax.Integration.Two.dll"), "x");
+        File.WriteAllText(Path.Combine(app, "PHax.Integration.Two.dll"), "x"); // also in the app folder (dev build)
+
+        var result = IntegrationLoader.Load(new ServiceCollection(), app, addons);
+        Assert.Equal(["One add-on", "Two add-on"], result.Problems.Select(p => p[..p.IndexOf(':')]));
+        Assert.Contains(result.Messages, m => m.Contains("Two")); // loaded once, from Addons
+        Assert.Equal(2, result.Messages.Count);
+    }
+
+    [Fact]
+    public void ApiVersion_MismatchIsExplained()
+    {
+        Assert.Null(IntegrationLoader.ApiProblem(IntegrationApi.Version));
+        Assert.Contains("older PHax", IntegrationLoader.ApiProblem(IntegrationApi.Version - 1));
+        Assert.Contains("newer PHax", IntegrationLoader.ApiProblem(IntegrationApi.Version + 1));
     }
 
     [Fact]

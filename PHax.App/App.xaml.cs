@@ -68,6 +68,7 @@ public partial class App : Application
         services.AddSingleton<AppNotifications>();
         services.AddSingleton<FaxDocumentService>();
         services.AddSingleton<ScannerService>();
+        services.AddSingleton<UpdateService>();
         services.AddSingleton<TransmissionPopupController>();
         services.AddSingleton<ShellViewModel>();
         services.AddSingleton<InboxViewModel>();
@@ -79,7 +80,9 @@ public partial class App : Application
         services.AddSingleton<IntegrationHost>();
         services.AddSingleton<IFaxSubmitter>(sp => sp.GetRequiredService<IntegrationHost>());
         services.AddSingleton<IUserNotifier>(sp => sp.GetRequiredService<IntegrationHost>());
-        foreach (var message in IntegrationLoader.Load(services, AppContext.BaseDirectory)) Log.Information("{Message}", message);
+        var integrations = IntegrationLoader.Load(services, AppContext.BaseDirectory, IntegrationLoader.AddonsDirectoryFor(AppContext.BaseDirectory));
+        foreach (var message in integrations.Messages) Log.Information("{Message}", message);
+        services.AddSingleton(integrations);
         _services = services.BuildServiceProvider();
 
         string? startupError = null;

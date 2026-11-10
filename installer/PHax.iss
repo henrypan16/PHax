@@ -1,27 +1,20 @@
 ; PHax installer (Inno Setup 6). Built by scripts\build.ps1, which publishes to ..\out first and passes
-; /DAppVersion=x.y.z. Produces out\installer\PHax-Setup-<version>.exe, or PHax-<Edition>-Setup-<version>.exe when
-; /DEdition=<Name> is passed (the integration DLL is already in out\App). Both editions share the AppId, so
-; installing one over the other switches edition in place.
+; /DAppVersion=x.y.z. Produces out\installer\PHax-Setup-<version>.exe.
+;
+; Add-ons are separate installers (PHax-Addon.iss) that install into {app}\Addons\<Name>. This setup never writes or
+; deletes there on install or upgrade, so add-ons survive PHax updates. Uninstalling PHax removes them as well.
 ;
 ; Network role: new installs get a page to choose it. Upgrades keep the existing choice (change it in Settings > Network).
 ; Unattended installs can set it on the command line:
 ;   /NETWORKMODE=server   this PC has the modem, nothing listens on the network (the default)
 ;   /NETWORKMODE=shared   this PC has the modem and other PCs may connect; /PORT=n to change the port
 ;   /NETWORKMODE=client   uses another PC's modem; /SERVER=name-or-ip and /PAIRCODE=code from Add a PC on the server
+; /RELAUNCH reopens PHax after a silent install (used by Settings > General > Check for updates).
 
 #ifndef AppVersion
   #define AppVersion "0.1.0"
 #endif
 #define AppName "PHax"
-#ifdef Edition
-  #define EditionPrefix Edition + "-"
-  #define EditionLabel " " + Edition
-  #define StartupNote " (needed for " + Edition + " faxes)"
-#else
-  #define EditionPrefix ""
-  #define EditionLabel ""
-  #define StartupNote ""
-#endif
 #define Root ".."
 
 [Setup]
@@ -30,7 +23,7 @@
 AppId={{A7980E80-1D40-4932-9DBD-C95001E6E75F}
 AppName={#AppName}
 AppVersion={#AppVersion}
-AppVerName={#AppName}{#EditionLabel} {#AppVersion}
+AppVerName={#AppName} {#AppVersion}
 AppPublisher=Phan Software
 AppCopyright=Copyright (C) 2026 Henry Phan (Phan Software)
 VersionInfoVersion={#AppVersion}
@@ -48,7 +41,7 @@ WizardSmallImageFile={#Root}\PHax.App\Assets\wizard-small.bmp
 UninstallDisplayIcon={app}\App\PHax.exe
 UninstallDisplayName={#AppName}
 OutputDir={#Root}\out\installer
-OutputBaseFilename=PHax-{#EditionPrefix}Setup-{#AppVersion}
+OutputBaseFilename=PHax-Setup-{#AppVersion}
 Compression=lzma2/ultra64
 SolidCompression=yes
 LZMAUseSeparateProcess=yes
@@ -57,12 +50,17 @@ CloseApplications=no
 RestartApplications=no
 
 [Tasks]
-Name: "startup"; Description: "Start PHax automatically when a user signs in{#StartupNote}"; GroupDescription: "Startup:"
+Name: "startup"; Description: "Start PHax automatically when a user signs in (needed for add-ons that send faxes)"; GroupDescription: "Startup:"
 Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription: "Shortcuts:"; Flags: unchecked
 
 [InstallDelete]
-; Integrations from a previous install; this edition's own (if any) is reinstalled from out\App.
+; Integrations built into the app folder by old "edition" installers; MigrateLegacyIntegrations has already moved
+; them to {app}\Addons, so this only removes leftovers.
 Type: files; Name: "{app}\App\PHax.Integration.*"
+
+[UninstallDelete]
+; Add-ons are installed by their own setups, but cannot work without PHax.
+Type: filesandordirs; Name: "{app}\Addons"
 
 [Files]
 Source: "{#Root}\out\App\*"; DestDir: "{app}\App"; Flags: ignoreversion recursesubdirs createallsubdirs
@@ -85,6 +83,8 @@ Name: "{commonstartup}\PHax"; Filename: "{app}\App\PHax.exe"; Parameters: "--min
 [Run]
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\service-setup.ps1"" -Action install -InstallDir ""{app}"""; StatusMsg: "Installing and starting the PHax service..."; Flags: runhidden waituntilterminated; BeforeInstall: ApplyNetworkRole; AfterInstall: PairWithServer
 Filename: "{app}\App\PHax.exe"; Description: "Open PHax now"; Flags: nowait postinstall skipifsilent runasoriginaluser
+; In-app updates run Setup with /SILENT /RELAUNCH: reopen PHax for the user who clicked Update (not as administrator).
+Filename: "{app}\App\PHax.exe"; Flags: nowait runasoriginaluser; Check: RelaunchRequested
 
 [UninstallRun]
 Filename: "{sys}\taskkill.exe"; Parameters: "/F /IM PHax.exe"; Flags: runhidden; RunOnceId: "KillApp"
@@ -206,6 +206,15 @@ begin
     MsgBox('PHax could not connect to the fax server. Check that the server PC is on, then enter the address and a new pairing code in PHax under Settings > Network.', mbInformation, MB_OK);
 end;
 
+function RelaunchRequested(): Boolean;
+var
+  I: Integer;
+begin
+  Result := False;
+  for I := 1 to ParamCount do
+    if CompareText(ParamStr(I), '/RELAUNCH') = 0 then Result := True;
+end;
+
 procedure StopRunningCopies();
 var
   ResultCode: Integer;
@@ -236,16 +245,65 @@ begin
     Exec(RemoveQuotes(Uninstaller), '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
 end;
 
+(* Old "edition" installers put PHax.Integration.<Name>.* in the app folder, where this setup deletes them. Move them to
+   the Addons\<Name> folder first so the integration keeps working until its add-on installer is run (which replaces
+   them). If that add-on is already installed, its copy wins and the old one is just deleted. *)
+procedure MigrateLegacyIntegrations();
+var
+  Find, Part: TFindRec;
+  AppDir, Name, Target: String;
+begin
+  AppDir := ExpandConstant('{app}\App');
+  if not FindFirst(AppDir + '\PHax.Integration.*.dll', Find) then Exit;
+  try
+    repeat
+      Name := Copy(Find.Name, Length('PHax.Integration.') + 1, Length(Find.Name) - Length('PHax.Integration.') - Length('.dll'));
+      if Name <> '' then
+      begin
+        Target := ExpandConstant('{app}\Addons\') + Name;
+        ForceDirectories(Target);
+        if FindFirst(AppDir + '\PHax.Integration.' + Name + '.*', Part) then
+        try
+          repeat
+            if FileExists(Target + '\' + Part.Name) then DeleteFile(AppDir + '\' + Part.Name)
+            else if not RenameFile(AppDir + '\' + Part.Name, Target + '\' + Part.Name) then
+              Log('Could not move ' + Part.Name + ' to ' + Target);
+          until not FindNext(Part);
+        finally
+          FindClose(Part);
+        end;
+        Log('Moved the built-in ' + Name + ' integration to ' + Target);
+      end;
+    until not FindNext(Find);
+  finally
+    FindClose(Find);
+  end;
+end;
+
 function PrepareToInstall(var NeedsRestart: Boolean): String;
 begin
   { Upgrades: the service and app must not hold the files that are about to be replaced. }
   StopRunningCopies();
   RemoveLegacyFTIFax();
+  MigrateLegacyIntegrations();
   Result := '';
+end;
+
+{ The add-on folders are deleted with PHax ([UninstallDelete]); remove their Windows Settings > Apps entries too. }
+procedure RemoveAddonRegistrations();
+var
+  Keys: TArrayOfString;
+  I: Integer;
+begin
+  if not RegGetSubkeyNames(HKLM64, 'Software\Microsoft\Windows\CurrentVersion\Uninstall', Keys) then Exit;
+  for I := 0 to GetArrayLength(Keys) - 1 do
+    if Pos('PHax.Addon.', Keys[I]) = 1 then
+      RegDeleteKeyIncludingSubkeys(HKLM64, 'Software\Microsoft\Windows\CurrentVersion\Uninstall\' + Keys[I]);
 end;
 
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 begin
+  if CurUninstallStep = usPostUninstall then RemoveAddonRegistrations();
   if (CurUninstallStep = usPostUninstall) and not UninstallSilent() then
   begin
     if MsgBox('Also delete all received and sent faxes, settings and logs in ' + ExpandConstant('{commonappdata}\PHax') + '?' + #13#10#13#10 +

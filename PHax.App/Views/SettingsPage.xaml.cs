@@ -121,6 +121,26 @@ public sealed partial class SettingsPage : Page
         await OfferRestartAsync();
     }
 
+    private async void CheckUpdates_Click(object sender, RoutedEventArgs e) => await ViewModel.CheckForUpdatesAsync();
+
+    private async void InstallUpdate_Click(object sender, RoutedEventArgs e)
+    {
+        if (ViewModel.AvailableUpdate is not { } update) return;
+        if (await ViewModel.GetUpdateBlockerAsync() is { } blocker)
+        {
+            await Dialogs.MessageAsync(XamlRoot, "Update PHax", blocker);
+            return;
+        }
+        if (!await Dialogs.ConfirmAsync(XamlRoot, "Update PHax",
+                $"{update.ReleaseName} will be downloaded ({update.Size / 1_048_576.0:0} MB) and installed.\n\n" +
+                "PHax and its service close while the update installs and PHax reopens when it is done. Faxes waiting in the Outbox are kept " +
+                "and sent afterwards. Save any fax you are writing first.\n\nWindows will ask for administrator permission.", "Update"))
+            return;
+        var message = await ViewModel.DownloadAndInstallAsync();
+        // Reaching this point means the installer did not take over (it normally closes PHax).
+        await Dialogs.MessageAsync(XamlRoot, "Update PHax", message);
+    }
+
     private void RefreshPorts_Click(object sender, RoutedEventArgs e)
     {
         ViewModel.RefreshPorts();

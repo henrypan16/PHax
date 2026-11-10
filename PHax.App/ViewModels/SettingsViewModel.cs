@@ -5,6 +5,7 @@ using PHax.Core.Integrations;
 using PHax.Core.Ipc;
 using PHax.Core.Models;
 using PHax.Core.Remote;
+using PHax.Core.Updates;
 using PHax.Data;
 using PHax.Modem.Profiles;
 using PHax.Modem.Serial;
@@ -43,7 +44,9 @@ public sealed partial class SettingsViewModel(
     ServiceClient client,
     IEnumerable<IAppIntegration> integrations,
     NetworkConfigStore networkStore,
-    NetworkConfig running) : ObservableObject
+    NetworkConfig running,
+    UpdateService updates,
+    IntegrationLoadResult integrationLoad) : ObservableObject
 {
     public static readonly int[] BaudRates = [9600, 19200, 38400, 57600, 115200];
     public static readonly int[] Speeds = [14400, 12000, 9600, 7200, 4800, 2400];
@@ -62,7 +65,9 @@ public sealed partial class SettingsViewModel(
 
     public ObservableCollection<PortChoice> Ports { get; } = [];
 
-    public bool HasIntegrations { get; } = integrations.Any();
+    /// <summary>The Integrations tab is shown for loaded add-ons, and for add-ons that failed to load so the reason is visible.</summary>
+    public bool HasIntegrations { get; } = integrations.Any() || integrationLoad.Problems.Count > 0;
+    public string IntegrationProblems { get; } = string.Join("\n", integrationLoad.Problems);
     [ObservableProperty] public partial IReadOnlyList<IntegrationItem> Integrations { get; set; } = [];
 
     /// <summary>The role the app is running in. A saved change takes effect after a restart.</summary>
@@ -360,5 +365,100 @@ public sealed partial class SettingsViewModel(
         await client.SendAsync(PipeCommands.RestoreBackup, new RestoreRequest(path), TimeSpan.FromMinutes(30));
         await LoadAsync();
         return "Backup restored.";
+    }
+
+    // ---- Updates (General tab) ----
+
+    public string VersionLabel => updates.VersionLabel;
+    [ObservableProperty] public partial string UpdateStatus { get; set; } = "";
+    [ObservableProperty] public partial bool UpdateBusy { get; set; }
+    [ObservableProperty] public partial bool IsDownloading { get; set; }
+    [ObservableProperty] public partial double DownloadProgress { get; set; }
+    [ObservableProperty] public partial UpdateInfo? AvailableUpdate { get; set; }
+    public bool HasUpdate => AvailableUpdate is not null;
+    public Uri? ReleaseNotesUri => AvailableUpdate is { ReleaseUrl.Length: > 0 } u && Uri.TryCreate(u.ReleaseUrl, UriKind.Absolute, out var uri) ? uri : null;
+    private (UpdateInfo Update, string Path)? _downloaded;
+
+    partial void OnAvailableUpdateChanged(UpdateInfo? value)
+    {
+        OnPropertyChanged(nameof(HasUpdate));
+        OnPropertyChanged(nameof(ReleaseNotesUri));
+    }
+
+    public async Task CheckForUpdatesAsync()
+    {
+        UpdateBusy = true;
+        UpdateStatus = "Checking GitHub for updates…";
+        try
+        {
+            var result = await updates.CheckAsync();
+            AvailableUpdate = result.Update;
+            UpdateStatus = result.Message;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or System.Text.Json.JsonException)
+        {
+            AvailableUpdate = null;
+            UpdateStatus = $"Could not check for updates: {(ex is TaskCanceledException ? "GitHub did not respond." : ex.Message)}";
+        }
+        finally { UpdateBusy = false; }
+    }
+
+    /// <summary>
+    /// Why updating now would interrupt a fax, or null. The installer stops the service, which would cut off a call in
+    /// progress. Queued faxes are safe: they wait in the database. A client PC's own service has no modem.
+    /// </summary>
+    public async Task<string?> GetUpdateBlockerAsync()
+    {
+        if (IsClient || !client.IsConnected) return null;
+        try
+        {
+            var status = await client.RequestAsync<ServiceStatusDto>(PipeCommands.GetStatus);
+            return status?.ModemState is ModemState.Sending or ModemState.Receiving or ModemState.Ringing
+                ? "A fax is being sent or received right now. Update when the call has finished."
+                : null;
+        }
+        catch (Exception ex) when (ex is IOException or InvalidOperationException or TimeoutException) { return null; }
+    }
+
+    /// <summary>
+    /// Downloads (once per version) and runs the installer. Normally the installer closes PHax and this never returns;
+    /// a returned message means the update did not happen.
+    /// </summary>
+    public async Task<string> DownloadAndInstallAsync()
+    {
+        if (AvailableUpdate is not { } update) return "Check for updates first.";
+        UpdateBusy = true;
+        try
+        {
+            if (_downloaded is not { } d || d.Update != update || !File.Exists(d.Path))
+            {
+                IsDownloading = true;
+                DownloadProgress = 0;
+                UpdateStatus = $"Downloading {update.AssetName}…";
+                var progress = new Progress<double>(p => DownloadProgress = p);
+                _downloaded = (update, await updates.DownloadAsync(update, progress));
+                IsDownloading = false;
+            }
+            // The download can take minutes; a call may have started meanwhile.
+            if (await GetUpdateBlockerAsync() is { } blocker) { UpdateStatus = blocker; return blocker; }
+
+            UpdateStatus = "Installing… PHax will close and reopen when the update is done.";
+            int code = await updates.RunInstallerAsync(_downloaded.Value.Path);
+            UpdateStatus = code == 0
+                ? "The update was installed. Restart PHax to use the new version."
+                : $"The update was not installed (installer exit code {code}). If Windows asked for administrator permission, it has to be allowed.";
+            return UpdateStatus;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or IOException or InvalidDataException or UnauthorizedAccessException
+                                       or TaskCanceledException or System.ComponentModel.Win32Exception or InvalidOperationException)
+        {
+            UpdateStatus = $"Update failed: {ex.Message}";
+            return UpdateStatus;
+        }
+        finally
+        {
+            IsDownloading = false;
+            UpdateBusy = false;
+        }
     }
 }
