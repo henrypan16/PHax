@@ -8,7 +8,7 @@
     <Authors>Henry Phan</Authors>
     <Company>Phan Software</Company>
     <Product>PHax</Product>
-    <Copyright>Copyright © 2026 Henry Phan (Phan Software). Apache-2.0 with Commons Clause.</Copyright>
+    <Copyright>Copyright © 2026 Henry Phan (Phan Software). Apache-2.0.</Copyright>
     <NoWarn>$(NoWarn);CA1416</NoWarn>
   </PropertyGroup>
 </Project>

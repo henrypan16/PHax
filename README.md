@@ -2,6 +2,14 @@
 
 # PHax
 
+<p align="center">
+  <a href="https://github.com/henrypan16/PHax/releases/latest"><img src="https://img.shields.io/github/v/release/henrypan16/PHax?label=Download&style=for-the-badge" alt="Download the latest PHax release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/henrypan16/PHax?style=for-the-badge" alt="License: Apache 2.0"></a>
+</p>
+
+**[Download PHax for Windows](https://github.com/henrypan16/PHax/releases/latest)**: on the release page, open **Assets** and click
+`PHax-Setup-<version>.exe`.
+
 PHax is a Windows fax application that sends and receives faxes through an ordinary **USB fax modem** — no fax
 server, no online fax service, and no dependency on the Windows Fax Service or "Windows Fax and Scan".
 
@@ -34,7 +42,13 @@ VoIP phone lines often break the fastest fax speed (V.17); PHax falls back to V.
 
 ## Install
 
-Download `PHax-Setup-<version>.exe` from the releases page and run it. The installer:
+1. Open the **[latest release](https://github.com/henrypan16/PHax/releases/latest)**.
+2. Under **Assets**, download `PHax-Setup-<version>.exe` (the version number changes with each release) and run it.
+
+Older versions are on the [releases page](https://github.com/henrypan16/PHax/releases). Once PHax is installed, you can update it from
+**Settings → General → Updates** instead of downloading the installer again.
+
+The installer:
 
 - installs PHax to `C:\Program Files\PHax`,
 - registers and starts the **PHax** Windows Service,
@@ -112,10 +126,9 @@ Issues and pull requests are welcome. Hardware reports are especially useful: in
 
 PHax was created by Henry Phan under Phan Software. Copyright © 2026 Henry Phan (Phan Software).
 
-Licensed under the [Apache License 2.0](LICENSE) with the **Commons Clause** License Condition v1.0: you may use,
-modify and redistribute PHax under the Apache 2.0 terms, but you may not sell it, or sell a product or service
-(including hosting or support) whose value derives substantially from it, without permission. Because of the
-Commons Clause, PHax is source-available rather than OSI open source. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
+PHax is open source under the [Apache License 2.0](LICENSE). You may use, modify and redistribute it, including
+commercially (for example, installing and supporting it for clients), as long as you follow its terms: keep the
+license and the [NOTICE](NOTICE) with copies you distribute, and mark files you change.
 
 Scanning uses [NAPS2.Sdk](https://www.naps2.com/sdk) (LGPL 2.1 or later), shipped as unmodified separate DLLs; see
 [NOTICE](NOTICE) and [licenses/](licenses/).
