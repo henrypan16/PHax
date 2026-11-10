@@ -14,6 +14,7 @@ public sealed partial class OutboxPage : Page
     public OutboxPage()
     {
         InitializeComponent();
+        Pane.AttachToggle(PaneToggle);
         Pane.AddShortcutsTo(this);
         Loaded += async (_, _) => await ViewModel.RefreshAsync();
     }

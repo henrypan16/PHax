@@ -12,12 +12,21 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
         <TextBlock Text="Drafts" Style="{StaticResource PageTitle}" />
-        <CommandBar Grid.Row="1" HorizontalAlignment="Left" DefaultLabelPosition="Right" Margin="0,0,0,8"
-                    IsEnabled="{x:Bind local:Bind.IsNotNull(ViewModel.Selected), Mode=OneWay}">
-            <AppBarButton Icon="Edit" Label="Edit" Click="Edit_Click" />
-            <AppBarButton Icon="Send" Label="Send" Click="Send_Click" />
-            <AppBarButton Icon="Delete" Label="Delete" Click="Delete_Click" />
-        </CommandBar>
+        <Grid Grid.Row="1" Margin="0,0,0,8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <CommandBar HorizontalAlignment="Left" DefaultLabelPosition="Right"
+                        IsEnabled="{x:Bind local:Bind.IsNotNull(ViewModel.Selected), Mode=OneWay}">
+                <AppBarButton Icon="Edit" Label="Edit" Click="Edit_Click" />
+                <AppBarButton Icon="Send" Label="Send" Click="Send_Click" />
+                <AppBarButton Icon="Delete" Label="Delete" Click="Delete_Click" />
+            </CommandBar>
+            <ToggleButton x:Name="PaneToggle" Grid.Column="1" VerticalAlignment="Center">
+                <FontIcon Glyph="&#xE89F;" FontSize="16" />
+            </ToggleButton>
+        </Grid>
         <Grid Grid.Row="2" ColumnSpacing="12">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="2*" MinWidth="320" />

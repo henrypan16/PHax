@@ -13,6 +13,7 @@ public sealed partial class SentPage : Page
     public SentPage()
     {
         InitializeComponent();
+        Pane.AttachToggle(PaneToggle);
         Pane.AddShortcutsTo(this);
         Loaded += async (_, _) => await ViewModel.RefreshAsync();
     }

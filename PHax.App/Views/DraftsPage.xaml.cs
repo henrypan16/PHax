@@ -17,6 +17,7 @@ public sealed partial class DraftsPage : Page
     public DraftsPage()
     {
         InitializeComponent();
+        Pane.AttachToggle(PaneToggle);
         Pane.AddShortcutsTo(this);
         Loaded += async (_, _) => await ViewModel.RefreshAsync();
         Unloaded += (_, _) => Watch(null);

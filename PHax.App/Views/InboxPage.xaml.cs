@@ -15,6 +15,7 @@ public sealed partial class InboxPage : Page
     public InboxPage()
     {
         InitializeComponent();
+        Pane.AttachToggle(PaneToggle);
         Pane.AddShortcutsTo(this);
         Loaded += async (_, _) => await ViewModel.RefreshAsync();
     }

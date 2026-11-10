@@ -15,6 +15,7 @@
         <Grid Grid.Row="1" Margin="0,0,0,8">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="280" />
             </Grid.ColumnDefinitions>
             <CommandBar HorizontalAlignment="Left" DefaultLabelPosition="Right" IsEnabled="{x:Bind local:Bind.IsNotNull(ViewModel.Selected), Mode=OneWay}">
@@ -25,7 +26,10 @@
                 <AppBarButton Icon="Preview" Label="Preview" Click="Preview_Click" />
                 <AppBarButton Icon="Delete" Label="Delete" Click="Delete_Click" />
             </CommandBar>
-            <AutoSuggestBox Grid.Column="1" PlaceholderText="Search" QueryIcon="Find" VerticalAlignment="Center"
+            <ToggleButton x:Name="PaneToggle" Grid.Column="1" Margin="0,0,8,0" VerticalAlignment="Center">
+                <FontIcon Glyph="&#xE89F;" FontSize="16" />
+            </ToggleButton>
+            <AutoSuggestBox Grid.Column="2" PlaceholderText="Search" QueryIcon="Find" VerticalAlignment="Center"
                             Text="{x:Bind ViewModel.Search, Mode=TwoWay}" />
         </Grid>
         <Grid Grid.Row="2" ColumnSpacing="12">

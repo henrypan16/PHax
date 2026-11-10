@@ -1,7 +1,9 @@
 using PHax.App.Services;
 using PHax.Core.Models;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Windows.Foundation;
@@ -30,10 +32,46 @@ public sealed partial class FaxPreviewPane : UserControl
     // Fit the page width (also when the pane is resized) until the user zooms.
     private bool _autoFit = true;
 
+    // The last Show while the pane was hidden; nothing is decoded until it is shown again.
+    private Action? _pending;
+
     public FaxPreviewPane()
     {
         InitializeComponent();
         HintText.Text = EmptyText;
+        RegisterPropertyChangedCallback(VisibilityProperty, (_, _) =>
+        {
+            if (Visibility == Visibility.Visible && _pending is { } pending) { _pending = null; pending(); }
+        });
+    }
+
+    /// <summary>
+    /// Lets <paramref name="toggle"/> show and hide this pane (as the reading pane in column 1 of a two-column grid,
+    /// whose list then takes the whole width). The choice is shared by all fax lists and remembered per user.
+    /// </summary>
+    public void AttachToggle(ToggleButton toggle)
+    {
+        var grid = Parent as Grid;
+        var paneWidth = grid?.ColumnDefinitions[1].Width ?? default;
+        double spacing = grid?.ColumnSpacing ?? 0;
+        void Apply()
+        {
+            bool show = UiPreferences.ShowPreviewPane;
+            toggle.IsChecked = show;
+            string tip = show ? "Hide the preview pane" : "Show the preview pane";
+            ToolTipService.SetToolTip(toggle, tip);
+            AutomationProperties.SetName(toggle, tip);
+            Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+            if (grid is null) return;
+            grid.ColumnDefinitions[1].Width = show ? paneWidth : new GridLength(0);
+            grid.ColumnSpacing = show ? spacing : 0;
+        }
+        void OnChanged(object? sender, EventArgs e) => Apply();
+        toggle.Click += (_, _) => UiPreferences.ShowPreviewPane = toggle.IsChecked == true;
+        // Pages may be cached, so pick up a change made on another list while this one was away.
+        Loaded += (_, _) => { UiPreferences.Changed -= OnChanged; UiPreferences.Changed += OnChanged; Apply(); };
+        Unloaded += (_, _) => UiPreferences.Changed -= OnChanged;
+        Apply();
     }
 
     /// <summary>Shown when nothing is selected.</summary>
@@ -57,6 +95,8 @@ public sealed partial class FaxPreviewPane : UserControl
     /// </summary>
     public async void Show(string? key, string title, Func<CancellationToken, Task<IReadOnlyList<FaxBitmap>>>? load, string? emptyText = null)
     {
+        if (Visibility == Visibility.Collapsed) { _pending = () => Show(key, title, load, emptyText); return; }
+        _pending = null;
         if (key == _requestedKey) return;
         _requestedKey = key;
         _load?.Cancel();
