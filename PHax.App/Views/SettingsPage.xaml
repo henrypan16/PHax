@@ -29,7 +29,11 @@
         </Grid.RowDefinitions>
         <TextBlock Text="Settings" Style="{StaticResource PageTitle}" />
 
-        <SelectorBar x:Name="Tabs" Grid.Row="1" SelectionChanged="Tabs_SelectionChanged" Margin="-12,0,0,8">
+        <!-- SelectorBar cannot overflow, so when its tabs do not fit, TabPicker replaces it (see UpdateTabLayout). -->
+        <Grid x:Name="TabRow" Grid.Row="1" SizeChanged="TabRow_SizeChanged">
+        <ComboBox x:Name="TabPicker" Visibility="Collapsed" MinWidth="240" Margin="0,4,0,12"
+                  AutomationProperties.Name="Settings section" SelectionChanged="TabPicker_SelectionChanged" />
+        <SelectorBar x:Name="Tabs" SelectionChanged="Tabs_SelectionChanged" Margin="-12,0,0,8">
             <SelectorBarItem Text="Modem" Tag="modem" IsSelected="True">
                 <SelectorBarItem.Icon><FontIcon Glyph="&#xE717;" /></SelectorBarItem.Icon>
             </SelectorBarItem>
@@ -61,6 +65,7 @@
                 <SelectorBarItem.Icon><FontIcon Glyph="&#xE90F;" /></SelectorBarItem.Icon>
             </SelectorBarItem>
         </SelectorBar>
+        </Grid>
 
         <!-- Diagnostics has its own scrolling lists, so it is hosted outside the settings ScrollViewer. -->
         <Frame x:Name="DiagnosticsFrame" Grid.Row="2" Visibility="Collapsed" />

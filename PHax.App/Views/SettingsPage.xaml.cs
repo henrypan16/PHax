@@ -17,6 +17,8 @@ public sealed partial class SettingsPage : Page
         if (ViewModel.IsClient)
             foreach (var item in Tabs.Items.Where(i => (string)i.Tag is "modem" or "incoming" or "outgoing" or "redial" or "backup").ToList())
                 Tabs.Items.Remove(item);
+        _pickerTabs = Tabs.Items.Where(i => i.Visibility == Visibility.Visible).ToList();
+        foreach (var item in _pickerTabs) TabPicker.Items.Add(item.Text);
         Loaded += async (_, _) =>
         {
             await ViewModel.LoadAsync();
@@ -62,7 +64,38 @@ public sealed partial class SettingsPage : Page
 
     private void Tabs_SelectionChanged(SelectorBar sender, SelectorBarSelectionChangedEventArgs args)
     {
-        if (sender.SelectedItem?.Tag is string tag) ShowTab(tag);
+        if (sender.SelectedItem?.Tag is not string tag) return;
+        ShowTab(tag);
+        if (sender.SelectedItem is { } selected) TabPicker.SelectedIndex = _pickerTabs.IndexOf(selected);
+    }
+
+    /// <summary>The tabs in the order the narrow-window dropdown lists them.</summary>
+    private readonly List<SelectorBarItem> _pickerTabs;
+
+    /// <summary>Width the tab bar needs to show every tab; measured while it is visible.</summary>
+    private double _tabsWidth;
+
+    private void TabPicker_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        // Goes through the SelectorBar so both controls always agree; Tabs_SelectionChanged shows the tab.
+        if (TabPicker.SelectedIndex is >= 0 and var i && i < _pickerTabs.Count && Tabs.SelectedItem != _pickerTabs[i])
+            Tabs.SelectedItem = _pickerTabs[i];
+    }
+
+    private void TabRow_SizeChanged(object sender, SizeChangedEventArgs e) => UpdateTabLayout();
+
+    /// <summary>Shows the tab bar when all its tabs fit, otherwise the dropdown, so every tab stays reachable.</summary>
+    private void UpdateTabLayout()
+    {
+        if (Tabs.Visibility == Visibility.Visible)
+        {
+            Tabs.Measure(new Windows.Foundation.Size(double.PositiveInfinity, double.PositiveInfinity));
+            _tabsWidth = Tabs.DesiredSize.Width;
+        }
+        if (_tabsWidth <= 0 || TabRow.ActualWidth <= 0) return;
+        bool narrow = _tabsWidth > TabRow.ActualWidth;
+        Tabs.Visibility = narrow ? Visibility.Collapsed : Visibility.Visible;
+        TabPicker.Visibility = narrow ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void ShowTab(string tag)
