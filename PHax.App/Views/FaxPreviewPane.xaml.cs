@@ -46,14 +46,16 @@ public sealed partial class FaxPreviewPane : UserControl
     }
 
     /// <summary>
-    /// Lets <paramref name="toggle"/> show and hide this pane (as the reading pane in column 1 of a two-column grid,
-    /// whose list then takes the whole width). The choice is shared by all fax lists and remembered per user.
+    /// Lets <paramref name="toggle"/> show and hide this pane, the reading pane in column 1 of <paramref name="grid"/>;
+    /// while it is hidden, the list in column 0 takes the whole width. The choice is shared by all fax lists and
+    /// remembered per user.
     /// </summary>
-    public void AttachToggle(ToggleButton toggle)
+    /// <remarks>The grid is passed in rather than taken from <c>Parent</c>, which may not be set yet when a page's
+    /// constructor runs.</remarks>
+    public void AttachToggle(ToggleButton toggle, Grid grid)
     {
-        var grid = Parent as Grid;
-        var paneWidth = grid?.ColumnDefinitions[1].Width ?? default;
-        double spacing = grid?.ColumnSpacing ?? 0;
+        var paneWidth = grid.ColumnDefinitions[1].Width;
+        double spacing = grid.ColumnSpacing;
         void Apply()
         {
             bool show = UiPreferences.ShowPreviewPane;
@@ -62,9 +64,11 @@ public sealed partial class FaxPreviewPane : UserControl
             ToolTipService.SetToolTip(toggle, tip);
             AutomationProperties.SetName(toggle, tip);
             Visibility = show ? Visibility.Visible : Visibility.Collapsed;
-            if (grid is null) return;
             grid.ColumnDefinitions[1].Width = show ? paneWidth : new GridLength(0);
             grid.ColumnSpacing = show ? spacing : 0;
+            // The list (and its "no faxes" text) spans the empty pane column too.
+            foreach (var child in grid.Children.OfType<FrameworkElement>().Where(c => c != this && Grid.GetColumn(c) == 0))
+                Grid.SetColumnSpan(child, show ? 1 : 2);
         }
         void OnChanged(object? sender, EventArgs e) => Apply();
         toggle.Click += (_, _) => UiPreferences.ShowPreviewPane = toggle.IsChecked == true;

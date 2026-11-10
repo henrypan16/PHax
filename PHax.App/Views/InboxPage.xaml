@@ -37,7 +37,7 @@
             <AutoSuggestBox Grid.Column="2" PlaceholderText="Search sender or name" QueryIcon="Find" VerticalAlignment="Center"
                             Text="{x:Bind ViewModel.Search, Mode=TwoWay}" />
         </Grid>
-        <Grid Grid.Row="2" ColumnSpacing="12">
+        <Grid x:Name="Body" Grid.Row="2" ColumnSpacing="12">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="2*" MinWidth="320" />
                 <ColumnDefinition Width="3*" />
